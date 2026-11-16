@@ -124,6 +124,7 @@
     #laser { display: none; margin-top: 32px; }
     body.geladen #laser { display: block; }
     .feld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; margin: 12px 0; font-size: 14px; }
+    .feld[hidden] { display: none; }
     .feld label { color: var(--grau); }
     .feld .reihe { display: flex; align-items: center; gap: 6px; }
     select, input[type=number] {
@@ -204,6 +205,18 @@
             <span>×</span>
             <input type="number" id="hoehe" value="450" min="10" step="1" aria-label="Höhe in mm">
           </div>
+        </div>
+        <div class="feld">
+          <label for="kanten">Kanten</label>
+          <!-- Später kommen hier „Gehrung von Hand“ und „Auffalten“ als weitere Einträge dazu -->
+          <select id="kanten">
+            <option value="stumpf" selected>stumpf</option>
+            <option value="ausgleichen">Materialstärke ausgleichen</option>
+          </select>
+        </div>
+        <div class="feld" id="dicke-feld" hidden>
+          <label for="dicke">Material&shy;stärke (mm)</label>
+          <input type="number" id="dicke" value="2" min="0.1" step="0.1">
         </div>
         <p id="meldung"></p>
         <button class="button" id="herunterladen">SVG herunterladen</button>
@@ -423,8 +436,10 @@
         liste.appendChild(li);
         // Bauteil flach legen (einmal pro Modell, in CAD-Einheiten)
         const flach = flachLegen(teil.geometry);
-        flacheTeile.push({ name, zuege: flach ? flach.zuege : [], massFeld: mass });
+        flacheTeile.push({ name, flach, zuege: flach ? flach.zuege : [], massFeld: mass });
       });
+      // Herausfinden, welche Kanten an ein anderes Bauteil stoßen (für „Materialstärke ausgleichen“)
+      stoesseFinden(bauteile, flacheTeile);
 
       dateiBasis = dateiname.replace(/\.(obj|ifc)$/i, '');
       document.body.classList.add('geladen');
@@ -539,7 +554,156 @@
           }
         }
       }
-      return { zuege };
+      return { zuege, u, v, n, flaeche: beste.flaeche };
+    }
+
+    // ---------- 5b. Stöße finden: Welche Kante eines Teils stößt an ein anderes Teil? ----------
+    // Idee: Jede Platte hat eine Außenseite (die Seite, die vom Hausinneren weg zeigt).
+    // Wo sich die Außenseiten zweier Platten schneiden, liegt die äußere Ecklinie.
+    // Liegt eine Kante des flachen Teils nah an dieser Linie und ist das Nachbarteil
+    // dort wirklich vorhanden, ist es ein Stoß. Gemerkt wird für jede Außenkante:
+    // die Ecklinie (in 2D), auf welcher Seite das Teil liegt, und wie weit die Kante
+    // später von der Ecklinie weg muss (0 = Teil läuft durch, sonst × Materialstärke).
+    function stoesseFinden(bauteile, teile) {
+      const gesamt = new THREE.Box3();
+      const infos = bauteile.map((teil, i) => {
+        const pos = teil.geometry.attributes.position;
+        const punkte = [];
+        for (let k = 0; k < pos.count; k++) punkte.push(new THREE.Vector3(pos.getX(k), pos.getY(k), pos.getZ(k)));
+        const kasten = new THREE.Box3().setFromPoints(punkte);
+        gesamt.union(kasten);
+        return { punkte, kasten, teil: teile[i], flach: teile[i].flach };
+      });
+      const mitte = gesamt.getCenter(new THREE.Vector3());
+      const tol = gesamt.getSize(new THREE.Vector3()).length() * 1e-4;
+
+      // a) Außenseite, Dicke und Außenumriss (in 3D) jedes Teils
+      infos.forEach(info => {
+        const f = info.flach;
+        info.teil.stoesse = [];
+        info.teil.aussen = -1;
+        if (!f || !f.zuege.length) return;
+        const N = f.n.clone();
+        if (N.dot(info.kasten.getCenter(new THREE.Vector3()).sub(mitte)) < 0) N.negate();
+        let min = Infinity, max = -Infinity;
+        for (const p of info.punkte) { const d = N.dot(p); min = Math.min(min, d); max = Math.max(max, d); }
+        // Außenumriss = der Linienzug mit der größten Fläche (die anderen sind Löcher)
+        let aussen = 0, groesste = -1;
+        f.zuege.forEach((z, i) => { const a = Math.abs(flaecheVon(z)); if (a > groesste) { groesste = a; aussen = i; } });
+        const w = max * N.dot(f.n);       // Lage der Außenseite entlang der Flächennormale
+        const ecken = f.zuege[aussen].map(([x, y]) =>
+          new THREE.Vector3().addScaledVector(f.u, x).addScaledVector(f.v, y).addScaledVector(f.n, w));
+        const schwer = ecken.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(ecken.length);
+        Object.assign(info, { N, c: max, T: max - min, ecken, schwer, flaeche: f.flaeche });
+        info.teil.aussen = aussen;
+      });
+
+      // Punkte eines Teils, die nah an der Ecklinie (Punkt X, Richtung D) liegen
+      const nahAnLinie = (punkte, X, D, weite) => punkte.filter(p => {
+        const r = p.clone().sub(X);
+        return r.addScaledVector(D, -r.dot(D)).length() <= weite;
+      });
+
+      // b) Jede Außenkante von Teil B gegen jedes andere Teil A prüfen
+      infos.forEach((B, b) => {
+        if (!B.N) return;
+        const z = B.ecken, anzahl = z.length;
+        for (let k = 0; k < anzahl; k++) {
+          const P = z[k], Q = z[(k + 1) % anzahl];
+          const E = Q.clone().sub(P);
+          const laenge = E.length();
+          B.teil.stoesse[k] = null;
+          if (laenge < tol) continue;
+          E.divideScalar(laenge);
+          let bester = null;
+          infos.forEach((A, a) => {
+            if (a === b || !A.N) return;
+            const kw = A.N.dot(B.N);                         // cos des Winkels zwischen den Außenseiten
+            if (Math.abs(kw) > 0.995) return;                // parallel → kein Eckstoß
+            const weite = A.T + B.T + tol;
+            if (!A.kasten.clone().expandByScalar(weite).intersectsBox(B.kasten)) return;
+            const D = new THREE.Vector3().crossVectors(B.N, A.N).normalize();
+            if (Math.abs(E.dot(D)) < 0.999) return;          // Kante läuft nicht entlang der Ecklinie
+            // Ein Punkt X auf der Ecklinie (Schnitt der beiden Außenseiten)
+            const X = new THREE.Vector3()
+              .addScaledVector(B.N, (B.c - A.c * kw) / (1 - kw * kw))
+              .addScaledVector(A.N, (A.c - B.c * kw) / (1 - kw * kw));
+            // m: Richtung in der Platte B, weg von der Ecklinie ins Teil hinein
+            const m = new THREE.Vector3().crossVectors(B.N, D);
+            if (B.schwer.clone().sub(X).dot(m) < 0) m.negate();
+            const abstand = P.clone().add(Q).multiplyScalar(0.5).sub(X).dot(m);
+            if (Math.abs(abstand) > A.T * 1.1 + tol) return; // Kante zu weit weg von der Ecke
+            // Ist A an dieser Stelle wirklich da – und ragt keins über das andere hinaus
+            // (z. B. Dachüberstand über der Wand = kein Eckstoß)?
+            const nahA = nahAnLinie(A.punkte, X, D, weite);
+            if (!nahA.length) return;
+            if (nahA.some(p => B.N.dot(p) > B.c + tol + 0.1 * B.T)) return;
+            if (nahAnLinie(B.punkte, X, D, weite).some(p => A.N.dot(p) > A.c + tol + 0.1 * A.T)) return;
+            // Liegt A entlang der Kante (mindestens halb so lang wie die Kante)?
+            const e0 = Math.min(P.clone().sub(X).dot(D), Q.clone().sub(X).dot(D));
+            const e1 = Math.max(P.clone().sub(X).dot(D), Q.clone().sub(X).dot(D));
+            const ad = nahA.map(p => p.clone().sub(X).dot(D));
+            const ueberlapp = Math.min(e1, Math.max(...ad)) - Math.max(e0, Math.min(...ad));
+            if (ueberlapp < 0.5 * (e1 - e0)) return;
+            // Wer läuft durch? Die größere Platte (bei Gleichstand die zuerst genannte).
+            const gleich = Math.abs(B.flaeche - A.flaeche) <= A.flaeche * 1e-6;
+            const laeuftDurch = gleich ? b < a : B.flaeche > A.flaeche;
+            // Innenwinkel zwischen den Platten (90° = rechte Ecke, 180° = gerade weiter)
+            const phi = Math.PI - Math.acos(Math.max(-1, Math.min(1, kw)));
+            // Gekürzte Platte: so weit von der Ecklinie weg, dass sie innen an der
+            // durchlaufenden Platte anliegt, ohne hineinzuragen (bei 90° genau 1 × Dicke)
+            const faktor = laeuftDurch ? 0
+              : phi >= Math.PI / 2 ? Math.sin(phi) : (1 + Math.cos(phi)) / Math.sin(phi);
+            if (!bester || faktor > bester.faktor) {
+              const m2 = [m.dot(B.flach.u), m.dot(B.flach.v)];
+              const l = Math.hypot(m2[0], m2[1]);
+              bester = { X2: [X.dot(B.flach.u), X.dot(B.flach.v)], m2: [m2[0] / l, m2[1] / l],
+                         faktor, mit: A.teil.name, winkel: Math.round(phi * 180 / Math.PI) };
+            }
+          });
+          B.teil.stoesse[k] = bester;
+        }
+      });
+    }
+
+    function flaecheVon(zug) {
+      let a = 0;
+      for (let i = 0; i < zug.length; i++) {
+        const [x1, y1] = zug[i], [x2, y2] = zug[(i + 1) % zug.length];
+        a += x1 * y2 - x2 * y1;
+      }
+      return a / 2;
+    }
+
+    // ---------- 5c. Materialstärke ausgleichen ----------
+    // Jede Außenkante mit Stoß wird parallel auf ihre neue Lage geschoben
+    // (Abstand von der äußeren Ecklinie = Faktor × Materialstärke). Die Nachbarkanten
+    // behalten ihre Richtung, die Ecken werden neu geschnitten. Löcher bleiben, wie sie sind.
+    function kantenAusgleichen(teil, dicke) {
+      if (teil.aussen < 0) return { zuege: teil.zuege, anzahl: 0 };
+      const z = teil.zuege[teil.aussen], n = z.length;
+      let anzahl = 0;
+      const linien = z.map((p, k) => {
+        const q = z[(k + 1) % n], s = teil.stoesse[k];
+        if (!s) return { p, d: [q[0] - p[0], q[1] - p[1]], fest: true };
+        anzahl++;
+        const a = s.faktor * dicke;
+        return { p: [s.X2[0] + s.m2[0] * a, s.X2[1] + s.m2[1] * a], d: [-s.m2[1], s.m2[0]], fest: false };
+      });
+      const neu = z.map((p, i) => {
+        const l1 = linien[(i - 1 + n) % n], l2 = linien[i];
+        if (l1.fest && l2.fest) return p;
+        const det = l1.d[0] * l2.d[1] - l1.d[1] * l2.d[0];
+        if (Math.abs(det) < 1e-9 * Math.hypot(...l1.d) * Math.hypot(...l2.d)) {
+          // beide Kanten parallel: Punkt nur auf die verschobene Linie setzen
+          const l = l2.fest ? l1 : l2, len2 = l.d[0] ** 2 + l.d[1] ** 2;
+          const t = ((p[0] - l.p[0]) * l.d[0] + (p[1] - l.p[1]) * l.d[1]) / len2;
+          return [l.p[0] + t * l.d[0], l.p[1] + t * l.d[1]];
+        }
+        const t = ((l2.p[0] - l1.p[0]) * l2.d[1] - (l2.p[1] - l1.p[1]) * l2.d[0]) / det;
+        return [l1.p[0] + t * l1.d[0], l1.p[1] + t * l1.d[1]];
+      });
+      return { zuege: teil.zuege.map((zug, i) => (i === teil.aussen ? neu : zug)), anzahl };
     }
 
     // Punkte, die mitten auf einer geraden Linie liegen, braucht der Laser nicht
@@ -578,7 +742,11 @@
       const frei = auswahl === 'frei';
       document.getElementById('frei').hidden = !frei;
       document.getElementById('frei-feld').hidden = !frei;
+      const kanten = document.getElementById('kanten').value;
+      document.getElementById('dicke-feld').hidden = kanten !== 'ausgleichen';
       return {
+        kanten,
+        dicke: zahl('dicke', 2),                       // Pappdicke in mm (echte Platte)
         einheitMm: parseFloat(document.getElementById('einheit').value),
         massstab: frei ? zahl('frei', 75) : parseFloat(auswahl),
         breite: zahl('breite', 600),
@@ -590,9 +758,19 @@
       const e = einstellungen();
       const faktor = e.einheitMm / e.massstab;       // CAD-Einheit → mm auf der Platte
 
+      // Kanten: „stumpf“ = Umrisse wie flach gelegt; „ausgleichen“ = Stöße um die
+      // Materialstärke anpassen (Dicke in mm auf der Platte → zurück in CAD-Einheiten)
+      let angepasst = 0;
+      const umrisse = flacheTeile.map(t => {
+        if (e.kanten !== 'ausgleichen') return t.zuege;
+        const r = kantenAusgleichen(t, e.dicke / faktor);
+        angepasst += r.anzahl;
+        return r.zuege;
+      });
+
       // Jedes Teil verkleinern und seine Größe (Rechteck drumherum) bestimmen
-      const teile = flacheTeile.map(t => {
-        const zuege = t.zuege.map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
+      const teile = flacheTeile.map((t, i) => {
+        const zuege = umrisse[i].map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
         const alle = zuege.flat();
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
@@ -622,6 +800,12 @@
       const meldung = document.getElementById('meldung');
       meldung.className = meldungen.length ? '' : 'ok';
       meldung.textContent = meldungen.length ? meldungen.join(' ') : `Alle ${platziert.length} Teile passen auf die Platte.`;
+      if (e.kanten === 'ausgleichen') {
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--grau)';
+        extra.textContent = ` ${angepasst} Stoßkanten an ${runde(e.dicke)} mm Materialstärke angepasst.`;
+        meldung.appendChild(extra);
+      }
 
       aktuellesSvg = svgErzeugen(platziert, e.breite, e.hoehe);
       document.getElementById('platte').innerHTML = aktuellesSvg.replace(/^<\?xml[^>]*>\s*/, '');
@@ -666,7 +850,7 @@ ${pfade}
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
 
-    ['einheit', 'massstab', 'frei', 'breite', 'hoehe'].forEach(id =>
+    ['einheit', 'massstab', 'frei', 'breite', 'hoehe', 'kanten', 'dicke'].forEach(id =>
       document.getElementById(id).addEventListener('input', laserNeuBerechnen)
     );
     document.getElementById('herunterladen').addEventListener('click', svgHerunterladen);
@@ -701,7 +885,7 @@ ${pfade}
     });
 
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell, zeigeIfc, svg: () => aktuellesSvg };
+    window.laserprep = { zeigeModell, zeigeIfc, svg: () => aktuellesSvg, teile: () => flacheTeile };
   </script>
 </body>
 </html>

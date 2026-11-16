@@ -36,7 +36,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
 
 ### Could (wenn Zeit bleibt)
-- [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen
+- [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen *(teilweise: Materialstärke-Feld da)*
+- [ ] Auswahl „Kanten“ – wie Platten an Ecken zusammenstoßen:
+  - [x] stumpf (Umrisse wie flach gelegt)
+  - [x] Materialstärke ausgleichen (Stoß auf Außenkante, größere Platte läuft durch)
+  - [ ] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
+  - [ ] Auffalten (Flächen als ein Stück, Knicke blau)
 - [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
 - [ ] Fugen/Fensterlinien auf Fassaden als Gravur übernehmen
 - [ ] PDF-Export
@@ -101,9 +106,25 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   (Süd/Nord Trapez 128 × 53,7 mm, Ost/West Dreieck 88 × 53,7 mm bei 1:50). Gehrungen an den Graten fehlen noch.
   Bauteilliste repariert: Nummer, Name und Maß stehen immer in einer Zeile; sehr lange Namen werden mit
   „…“ gekürzt, der ganze Name erscheint beim Darüberfahren mit der Maus.
+- 16.11.: Viertes Feature fertig: Auswahl **„Kanten“** unter „Laserdatei“ mit „stumpf“ (Standard, genau wie bisher)
+  und „Materialstärke ausgleichen“ + Feld „Materialstärke (mm)“ (echte Pappdicke, Standard 2 mm).
+  Entscheidungen: Die **größere Platte läuft durch**, die kleinere wird gekürzt (bei gleich großen die zuerst
+  genannte); die Dicke kommt **immer aus dem Feld**, nicht aus dem CAD.
+  So funktioniert es: Jede Platte hat eine Außenseite (vom Hausinneren weg). Wo sich die Außenseiten zweier
+  Platten treffen, liegt die äußere Ecklinie. Außenkanten nah an so einer Linie sind Stöße. Die durchlaufende
+  Platte geht bis zur Ecklinie, die gekürzte endet innen an ihr (bei 90° genau 1 × Pappdicke, bei schrägen
+  Ecken so, dass nichts übersteht). Freie Kanten, Tür-/Fensterkanten und Löcher bleiben, Dachüberstände
+  über Wänden zählen nicht als Stoß. Die Außenmaße des Hauses stimmen dadurch unabhängig davon, wie dick
+  die Wände im CAD gezeichnet sind.
+  Getestet (1:50, 2 mm): OBJ-Testhaus Wände 120 × 64 / 76 × 64 mm statt 120 × 60 / 70,4 × 60;
+  IFC-Testhaus Wände 120 × 60 / 76 × 60 statt 120 × 56 / 72 × 56; Walmdach: Trapeze laufen an den Graten
+  durch (131,4 × 55,8 bzw. 53,9 mm), Dreiecke gekürzt (87,6 × 53,5 mm), First Süd läuft durch.
+  „stumpf“ liefert Zeichen für Zeichen dieselbe SVG wie vorher. In der Meldung steht, wie viele Stoßkanten angepasst wurden.
+  Noch offen: Bei schrägen Stößen (Grate, First) bleibt außen eine kleine Kerbe – das löst später „Gehrung von Hand“.
 
 ## Nächste Schritte
 1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
 2. Platzsparendes Anordnen und mehrere Platten.
 3. DXF-Export.
 4. Echtes Archicad-Modell testen (OBJ und IFC).
+5. Kanten: „Gehrung von Hand“, danach „Auffalten“.
