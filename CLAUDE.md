@@ -1,5 +1,5 @@
 # Ziel
-Web-App „Laserdatei aus 3D": OBJ-Modell (z. B. aus Archicad) hochladen, Bauteile flach legen,
+Web-App **LaserPrep** (Slogan: „unfold your ideas"): OBJ-Modell (z. B. aus Archicad) hochladen, Bauteile flach legen,
 als SVG/DXF für den Lasercutter exportieren. Details, MVP und Stand stehen in PLAN.md.
 
 # Regeln

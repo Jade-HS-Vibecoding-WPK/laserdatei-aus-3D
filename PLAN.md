@@ -1,4 +1,5 @@
-# PLAN – Laserdatei aus 3D
+# PLAN – LaserPrep
+*unfold your ideas*
 
 ## Idee
 Eine kleine Web-App für Architekturstudierende: Man lädt ein 3D-Modell (OBJ, z. B. aus Archicad) hoch,
