@@ -43,13 +43,35 @@
       cursor: pointer;
     }
     .button:hover { background: #e55f00; }
+    /* Zweitbutton: sobald ein Modell geladen ist, ist „SVG herunterladen“ der Hauptbutton */
+    .button.zweit { background: #fff; color: var(--akzent); box-shadow: inset 0 0 0 2px var(--akzent); }
+    .button.zweit:hover { background: rgba(255, 106, 0, 0.06); }
 
     main {
       display: grid;
-      grid-template-columns: 1fr 280px;
+      grid-template-columns: 1fr 300px;
       min-height: 0;
     }
+    /* Links: oben 3D-Modell, unten die flach gelegten Teile auf der Platte */
+    .links { display: grid; grid-template-rows: 1fr; min-height: 0; }
+    body.geladen .links { grid-template-rows: 1fr 1fr; }
     #ansicht { position: relative; min-height: 0; overflow: hidden; }
+    #platte-bereich {
+      display: none;
+      border-top: 1px solid var(--text);
+      padding: 16px 24px 24px;
+      min-height: 0;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+    }
+    body.geladen #platte-bereich { display: grid; }
+    #platte-titel { font-size: 14px; color: var(--grau); }
+    #platte-titel strong { color: var(--text); text-transform: uppercase; letter-spacing: 1px; margin-right: 12px; }
+    #platte { min-height: 0; }
+    #platte svg { width: 100%; height: 100%; display: block; }
+    /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
+    #platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+    #platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
     #ansicht canvas { display: block; }
 
     /* Hinweis in der Mitte, solange noch kein Modell geladen ist */
@@ -92,7 +114,23 @@
       display: inline-block; width: 32px; color: var(--grau);
     }
     #teile li:hover { color: var(--akzent); }
+    #teile li .mass { float: right; color: var(--grau); font-size: 12px; padding-top: 2px; }
     #fehler { color: #c00; font-size: 14px; }
+
+    /* Einstellungen für die Laserdatei */
+    #laser { display: none; margin-top: 32px; }
+    body.geladen #laser { display: block; }
+    .feld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; margin: 12px 0; font-size: 14px; }
+    .feld label { color: var(--grau); }
+    .feld .reihe { display: flex; align-items: center; gap: 6px; }
+    select, input[type=number] {
+      font: inherit; font-size: 14px; padding: 6px 8px;
+      border: 1px solid var(--linie); background: #fff; width: 100%; min-width: 0;
+    }
+    select:focus, input:focus { outline: 2px solid var(--akzent); outline-offset: -1px; }
+    #meldung { font-size: 13px; line-height: 1.5; color: #c00; margin: 12px 0; }
+    #meldung.ok { color: var(--grau); }
+    #herunterladen { width: 100%; margin-top: 8px; }
     .steuerung { color: var(--grau); font-size: 12px; margin-top: 24px; line-height: 1.6; }
   </style>
 
@@ -116,10 +154,16 @@
   </header>
 
   <main>
-    <div id="ansicht">
-      <div id="hinweis">
-        <strong>OBJ-Datei hierher ziehen</strong>
-        oder oben auf „OBJ-Datei wählen“ klicken
+    <div class="links">
+      <div id="ansicht">
+        <div id="hinweis">
+          <strong>OBJ-Datei hierher ziehen</strong>
+          oder oben auf „OBJ-Datei wählen“ klicken
+        </div>
+      </div>
+      <div id="platte-bereich">
+        <div id="platte-titel"><strong>Laserplatte</strong><span id="platte-info"></span></div>
+        <div id="platte"></div>
       </div>
     </div>
     <aside>
@@ -127,6 +171,40 @@
       <p id="dateiname">Noch kein Modell geladen</p>
       <ul id="teile"></ul>
       <p id="fehler"></p>
+
+      <section id="laser">
+        <h2>Laserdatei</h2>
+        <div class="feld">
+          <label for="einheit">Einheit im CAD</label>
+          <select id="einheit">
+            <option value="1" selected>mm</option>
+            <option value="1000">m</option>
+          </select>
+        </div>
+        <div class="feld">
+          <label for="massstab">Maßstab</label>
+          <div class="reihe">
+            <select id="massstab">
+              <option value="50" selected>1:50</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+              <option value="frei">frei</option>
+            </select>
+            <span id="frei-feld" hidden>1:</span>
+            <input type="number" id="frei" value="75" min="1" step="1" hidden>
+          </div>
+        </div>
+        <div class="feld">
+          <label for="breite">Platte (mm)</label>
+          <div class="reihe">
+            <input type="number" id="breite" value="600" min="10" step="1" aria-label="Breite in mm">
+            <span>×</span>
+            <input type="number" id="hoehe" value="450" min="10" step="1" aria-label="Höhe in mm">
+          </div>
+        </div>
+        <p id="meldung"></p>
+        <button class="button" id="herunterladen">SVG herunterladen</button>
+      </section>
       <p class="steuerung">
         Linke Maustaste: drehen<br>
         Rechte Maustaste: verschieben<br>
@@ -238,15 +316,267 @@
         `${dateiname} · ${bauteile.length} Bauteile`;
       const liste = document.getElementById('teile');
       liste.innerHTML = '';
+      flacheTeile = [];
       bauteile.forEach((teil, i) => {
+        const name = teil.name || `Bauteil ${i + 1}`;
         const li = document.createElement('li');
-        li.textContent = teil.name || `Bauteil ${i + 1}`;
+        li.textContent = name;
+        const mass = document.createElement('span');
+        mass.className = 'mass';
+        li.appendChild(mass);
         // Mit der Maus über den Namen fahren → Bauteil leuchtet orange
         li.addEventListener('mouseenter', () => teil.material.color.set(AKZENT));
         li.addEventListener('mouseleave', () => teil.material.color.set(0xeeeeee));
         liste.appendChild(li);
+        // Bauteil flach legen (einmal pro Modell, in CAD-Einheiten)
+        const flach = flachLegen(teil.geometry);
+        flacheTeile.push({ name, zuege: flach ? flach.zuege : [], massFeld: mass });
       });
+
+      dateiBasis = dateiname.replace(/\.obj$/i, '');
+      document.body.classList.add('geladen');
+      document.getElementById('waehlen').classList.add('zweit');
+      laserNeuBerechnen();
     }
+
+    // ---------- 5. Ein Bauteil flach legen ----------
+    // Idee: Das Bauteil ist eine Platte. Wir suchen ihre größte ebene Fläche
+    // (z. B. die Vorderseite der Wand), drehen sie flach in 2D und nehmen
+    // ihren Rand (Außenkante + Löcher) als Schnittlinien.
+    function flachLegen(geometrie) {
+      const pos = geometrie.attributes.position;
+      const box = new THREE.Box3().setFromBufferAttribute(pos);
+      const diag = box.getSize(new THREE.Vector3()).length() || 1;
+      const raster = diag * 1e-6;          // so nah beieinander = derselbe Punkt
+
+      // a) Gleiche Eckpunkte zusammenfassen (OBJLoader liefert jedes Dreieck einzeln)
+      const punkte = [], nummer = new Map(), ecken = [];
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        const schluessel = `${Math.round(x / raster)},${Math.round(y / raster)},${Math.round(z / raster)}`;
+        let id = nummer.get(schluessel);
+        if (id === undefined) {
+          id = punkte.length;
+          punkte.push(new THREE.Vector3(x, y, z));
+          nummer.set(schluessel, id);
+        }
+        ecken.push(id);
+      }
+
+      // b) Dreiecke nach Ebene sortieren: gleiche Richtung (Normale) + gleiche Lage
+      const gruppen = [];
+      const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+      for (let t = 0; t + 2 < ecken.length; t += 3) {
+        const [i, j, k] = [ecken[t], ecken[t + 1], ecken[t + 2]];
+        ab.subVectors(punkte[j], punkte[i]);
+        ac.subVectors(punkte[k], punkte[i]);
+        const normale = new THREE.Vector3().crossVectors(ab, ac);
+        const doppelFlaeche = normale.length();
+        if (doppelFlaeche < diag * diag * 1e-12) continue;   // Dreieck ohne Fläche
+        normale.divideScalar(doppelFlaeche);
+        const lage = normale.dot(punkte[i]);
+        let g = gruppen.find(g => g.normale.dot(normale) > 0.9999 && Math.abs(g.lage - lage) < diag * 1e-5);
+        if (!g) { g = { normale, lage, flaeche: 0, dreiecke: [] }; gruppen.push(g); }
+        g.flaeche += doppelFlaeche / 2;
+        g.dreiecke.push([i, j, k]);
+      }
+      if (gruppen.length === 0) return null;
+      const beste = gruppen.reduce((m, g) => (g.flaeche > m.flaeche * (1 + 1e-9) ? g : m));
+
+      // c) Diese Ebene in 2D drehen: „oben“ bleibt oben (bei Böden/Decken zeigt Norden nach oben)
+      const n = beste.normale;
+      const oben = Math.abs(n.y) > 0.9 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+      const v = oben.clone().addScaledVector(n, -oben.dot(n)).normalize();
+      const u = new THREE.Vector3().crossVectors(v, n);
+      const p2 = new Map();                 // Punktnummer → [x, y] in 2D
+      beste.dreiecke.flat().forEach(id => {
+        if (!p2.has(id)) p2.set(id, [punkte[id].dot(u), punkte[id].dot(v)]);
+      });
+
+      // d) Alle Dreieckskanten sammeln (mit Richtung). Liegt ein Punkt mitten auf
+      //    einer Kante (T-Stoß), wird die Kante dort geteilt.
+      const ids = [...p2.keys()];
+      const toleranz = raster * 10;
+      const kanten = new Set();
+      for (const [i, j, k] of beste.dreiecke) {
+        for (const [s, e] of [[i, j], [j, k], [k, i]]) {
+          const A = p2.get(s), B = p2.get(e);
+          const dx = B[0] - A[0], dy = B[1] - A[1], len2 = dx * dx + dy * dy;
+          const dazwischen = [];
+          for (const id of ids) {
+            if (id === s || id === e) continue;
+            const P = p2.get(id);
+            const t = ((P[0] - A[0]) * dx + (P[1] - A[1]) * dy) / len2;
+            if (t <= 1e-9 || t >= 1 - 1e-9) continue;
+            const qx = A[0] + t * dx - P[0], qy = A[1] + t * dy - P[1];
+            if (qx * qx + qy * qy < toleranz * toleranz) dazwischen.push([t, id]);
+          }
+          dazwischen.sort((a, b) => a[0] - b[0]);
+          let vorher = s;
+          for (const [, id] of dazwischen) { kanten.add(`${vorher}>${id}`); vorher = id; }
+          kanten.add(`${vorher}>${e}`);
+        }
+      }
+
+      // e) Randkanten: Kanten, die nur zu einem Dreieck gehören
+      //    (innen liegt jede Kante zweimal vor, einmal hin und einmal zurück)
+      const rand = new Map();               // Startpunkt → Liste der Endpunkte
+      for (const kante of kanten) {
+        const [s, e] = kante.split('>').map(Number);
+        if (kanten.has(`${e}>${s}`)) continue;
+        if (!rand.has(s)) rand.set(s, []);
+        rand.get(s).push(e);
+      }
+
+      // f) Randkanten zu geschlossenen Linienzügen verketten
+      const zuege = [];
+      for (const start of rand.keys()) {
+        while (rand.get(start).length) {
+          const zug = [start];
+          let jetzt = rand.get(start).pop();
+          while (jetzt !== start) {
+            zug.push(jetzt);
+            const weiter = rand.get(jetzt);
+            if (!weiter || !weiter.length) break;
+            jetzt = weiter.pop();
+          }
+          if (jetzt === start && zug.length >= 3) {
+            const vereinfacht = geradePunkteEntfernen(zug.map(id => p2.get(id)), toleranz);
+            if (vereinfacht.length >= 3) zuege.push(vereinfacht);
+          }
+        }
+      }
+      return { zuege };
+    }
+
+    // Punkte, die mitten auf einer geraden Linie liegen, braucht der Laser nicht
+    function geradePunkteEntfernen(zug, toleranz) {
+      let geaendert = true;
+      while (geaendert && zug.length > 3) {
+        geaendert = false;
+        for (let i = 0; i < zug.length; i++) {
+          const a = zug[(i - 1 + zug.length) % zug.length], b = zug[i], c = zug[(i + 1) % zug.length];
+          const kreuz = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+          const laenge = Math.hypot(c[0] - a[0], c[1] - a[1]);
+          const gleicheRichtung = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) > 0;
+          if (gleicheRichtung && Math.abs(kreuz) <= toleranz * laenge) {
+            zug.splice(i, 1);
+            geaendert = true;
+            break;
+          }
+        }
+      }
+      return zug;
+    }
+
+    // ---------- 6. Maßstab, Platte, Anordnung ----------
+    let flacheTeile = [];
+    let dateiBasis = 'laserdatei';
+    let aktuellesSvg = '';
+    const ABSTAND = 5;                       // mm zwischen den Teilen und zum Plattenrand
+
+    function zahl(id, standard) {
+      const w = parseFloat(document.getElementById(id).value);
+      return w > 0 ? w : standard;
+    }
+
+    function einstellungen() {
+      const auswahl = document.getElementById('massstab').value;
+      const frei = auswahl === 'frei';
+      document.getElementById('frei').hidden = !frei;
+      document.getElementById('frei-feld').hidden = !frei;
+      return {
+        einheitMm: parseFloat(document.getElementById('einheit').value),
+        massstab: frei ? zahl('frei', 75) : parseFloat(auswahl),
+        breite: zahl('breite', 600),
+        hoehe: zahl('hoehe', 450)
+      };
+    }
+
+    function laserNeuBerechnen() {
+      const e = einstellungen();
+      const faktor = e.einheitMm / e.massstab;       // CAD-Einheit → mm auf der Platte
+
+      // Jedes Teil verkleinern und seine Größe (Rechteck drumherum) bestimmen
+      const teile = flacheTeile.map(t => {
+        const zuege = t.zuege.map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
+        const alle = zuege.flat();
+        const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
+        const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
+        const b = maxX - minX, h = maxY - minY;
+        t.massFeld.textContent = alle.length ? `${runde(b)} × ${runde(h)} mm` : '–';
+        return { name: t.name, zuege, minX, maxY, b, h, leer: !alle.length };
+      });
+
+      // Zeilenweise nebeneinander legen, die höchsten Teile zuerst
+      const platziert = [], zuGross = [], keinPlatz = [], ohneFlaeche = [];
+      let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
+      [...teile].sort((a, b) => b.h - a.h).forEach(t => {
+        if (t.leer) { ohneFlaeche.push(t.name); return; }
+        if (t.b > e.breite - 2 * ABSTAND || t.h > e.hoehe - 2 * ABSTAND) { zuGross.push(t.name); return; }
+        if (x + t.b > e.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
+        if (y + t.h > e.hoehe - ABSTAND) { keinPlatz.push(t.name); return; }
+        platziert.push({ teil: t, x, y });
+        x += t.b + ABSTAND;
+        zeilenHoehe = Math.max(zeilenHoehe, t.h);
+      });
+
+      // Hinweise
+      const meldungen = [];
+      if (zuGross.length) meldungen.push(`Größer als die Platte: ${zuGross.join(', ')}. Kleineren Maßstab oder größere Platte wählen.`);
+      if (keinPlatz.length) meldungen.push(`Passt nicht mehr auf die Platte: ${keinPlatz.join(', ')}.`);
+      if (ohneFlaeche.length) meldungen.push(`Keine Fläche gefunden: ${ohneFlaeche.join(', ')}.`);
+      const meldung = document.getElementById('meldung');
+      meldung.className = meldungen.length ? '' : 'ok';
+      meldung.textContent = meldungen.length ? meldungen.join(' ') : `Alle ${platziert.length} Teile passen auf die Platte.`;
+
+      aktuellesSvg = svgErzeugen(platziert, e.breite, e.hoehe);
+      document.getElementById('platte').innerHTML = aktuellesSvg.replace(/^<\?xml[^>]*>\s*/, '');
+      document.getElementById('platte-info').textContent =
+        `${e.breite} × ${e.hoehe} mm · 1:${e.massstab} · ${platziert.length} von ${teile.length} Teilen`;
+    }
+
+    function runde(z) { return Math.round(z * 10) / 10; }
+
+    // ---------- 7. Die SVG-Datei als Text schreiben ----------
+    // Maße in mm: width="600mm" und viewBox 0 0 600 450 → 1 Einheit = 1 mm
+    function svgErzeugen(platziert, breite, hoehe) {
+      const f = z => String(Math.round(z * 1000) / 1000);
+      const schutz = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      const pfade = platziert.map(({ teil, x, y }) => {
+        // SVG zählt y nach unten, darum wird die Höhe umgedreht
+        const d = teil.zuege.map(z =>
+          'M' + z.map(([px, py]) => `${f(x + px - teil.minX)} ${f(y + teil.maxY - py)}`).join(' L') + ' Z'
+        ).join(' ');
+        return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
+      }).join('\n');
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${f(breite)}mm" height="${f(hoehe)}mm" viewBox="0 0 ${f(breite)} ${f(hoehe)}">
+  <!-- LaserPrep: gelb = Orientierungsrahmen (Platte), rot = Schneiden, Haarlinien -->
+  <rect x="0" y="0" width="${f(breite)}" height="${f(hoehe)}" fill="none" stroke="rgb(255,255,0)" stroke-width="0.01"/>
+  <g fill="none" stroke="rgb(255,0,0)" stroke-width="0.01">
+${pfade}
+  </g>
+</svg>
+`;
+    }
+
+    function svgHerunterladen() {
+      if (!aktuellesSvg) return;
+      const e = einstellungen();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([aktuellesSvg], { type: 'image/svg+xml' }));
+      link.download = `${dateiBasis}_1-${e.massstab}.svg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    ['einheit', 'massstab', 'frei', 'breite', 'hoehe'].forEach(id =>
+      document.getElementById(id).addEventListener('input', laserNeuBerechnen)
+    );
+    document.getElementById('herunterladen').addEventListener('click', svgHerunterladen);
 
     function ladeDatei(datei) {
       if (!datei) return;
@@ -275,7 +605,7 @@
     });
 
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell };
+    window.laserprep = { zeigeModell, svg: () => aktuellesSvg };
   </script>
 </body>
 </html>

@@ -22,18 +22,18 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 
 ### Must (läuft am Freitag)
 - [x] OBJ-Datei hochladen und 3D-Vorschau anzeigen
-- [ ] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
-- [ ] Maßstab wählen (1:50, 1:100, 1:200, frei)
+- [x] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
+- [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [ ] Doppelte/überlappende Linien automatisch entfernen
 - [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern)
-- [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen
-- [ ] 2D-Vorschau der Laserplatte(n) im Browser
-- [ ] Export als SVG und DXF
+- [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(teilweise: einstellbar, Teile zeilenweise; platzsparend + mehrere Platten fehlen)*
+- [x] 2D-Vorschau der Laserplatte(n) im Browser
+- [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
 
 ### Should (wäre gut)
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
-- [ ] Warnung, wenn ein Teil größer als die Materialplatte ist
+- [x] Warnung, wenn ein Teil größer als die Materialplatte ist
 
 ### Could (wenn Zeit bleibt)
 - [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen
@@ -77,6 +77,19 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet mit `beispiel/testhaus.obj`: alle 6 Bauteile erkannt, Tür und Fenster sichtbar.
   three.js r160 (MIT) per CDN, in README genannt.
 
+- 16.11.: Zweites Feature fertig: kleine Version der Laserdatei.
+  Jedes Bauteil wird flach gelegt (größte ebene Fläche → 2D, Rand = Außenumriss + Löcher;
+  Öffnungen am Wandrand werden Teil des Außenumrisses). Einstellungen rechts: Einheit mm/m
+  (Standard mm), Maßstab 1:50/1:100/1:200/frei (Standard 1:50), Platte B × H (Standard 600 × 450 mm).
+  Teile liegen zeilenweise mit 5 mm Abstand auf der Platte, 2D-Vorschau unter dem 3D-Modell,
+  Hinweis wenn etwas nicht passt. Hauptbutton „SVG herunterladen“: Maße in mm, rot = Schnitt,
+  gelb = Plattenrahmen, Haarlinie 0,01 mm. Getestet mit dem Testhaus: 6 Umrisse, Boden 120 × 80 mm,
+  Südwand mit Tür (am Rand) und Fenster.
+- Beobachtung: Im Testhaus haben nur Wand_Sued echte Öffnungen. Wand_Nord und Wand_Ost sind
+  in der OBJ in Abschnitte geteilt, aber alle Abschnitte sind geschlossen (kein Fenster-Loch).
+
 ## Nächste Schritte
-1. Platten flach legen: größte Fläche jedes Bauteils finden, Umriss + Öffnungen als 2D-Linien.
-2. Danach: 2D-Vorschau der flach gelegten Teile.
+1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
+2. Platzsparendes Anordnen und mehrere Platten.
+3. DXF-Export.
+4. Echtes Archicad-Modell testen.
