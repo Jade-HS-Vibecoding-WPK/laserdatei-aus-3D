@@ -103,18 +103,21 @@
     aside h2 { margin: 0 0 4px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
     #dateiname { color: var(--grau); font-size: 14px; margin: 0 0 24px; word-break: break-all; }
     #teile { list-style: none; margin: 0; padding: 0; counter-reset: teil; }
+    /* Nummer | Name | Maß in einer Zeile; lange Namen werden mit „…“ gekürzt (ganzer Name beim Darüberfahren) */
     #teile li {
       counter-increment: teil;
+      display: flex; align-items: baseline; gap: 8px;
       padding: 8px 0;
       border-bottom: 1px solid var(--linie);
       cursor: default;
     }
     #teile li::before {
       content: counter(teil, decimal-leading-zero);
-      display: inline-block; width: 32px; color: var(--grau);
+      flex: 0 0 24px; color: var(--grau);
     }
     #teile li:hover { color: var(--akzent); }
-    #teile li .mass { float: right; color: var(--grau); font-size: 12px; padding-top: 2px; }
+    #teile li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #teile li .mass { flex: none; white-space: nowrap; color: var(--grau); font-size: 12px; }
     #fehler { color: #c00; font-size: 14px; }
 
     /* Einstellungen für die Laserdatei */
@@ -406,7 +409,11 @@
       bauteile.forEach((teil, i) => {
         const name = teil.name || `Bauteil ${i + 1}`;
         const li = document.createElement('li');
-        li.textContent = name;
+        li.title = name;
+        const nameFeld = document.createElement('span');
+        nameFeld.className = 'name';
+        nameFeld.textContent = name;
+        li.appendChild(nameFeld);
         const mass = document.createElement('span');
         mass.className = 'mass';
         li.appendChild(mass);

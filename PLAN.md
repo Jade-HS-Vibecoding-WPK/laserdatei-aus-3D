@@ -99,7 +99,8 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - 16.11.: Zweite Testdatei `beispiel/testhaus_walmdach.ifc`: gleiches Haus mit Walmdach (35°, 20 cm Überstand),
   als IfcRoof mit 4 Dachplatten (IfcSlab). Ergebnis: 10 Teile, Dachflächen in wahrer Größe flach gelegt
   (Süd/Nord Trapez 128 × 53,7 mm, Ost/West Dreieck 88 × 53,7 mm bei 1:50). Gehrungen an den Graten fehlen noch.
-  Beobachtung: lange Namen in der Bauteilliste brechen um, das Maß rutscht dann in die nächste Zeile.
+  Bauteilliste repariert: Nummer, Name und Maß stehen immer in einer Zeile; sehr lange Namen werden mit
+  „…“ gekürzt, der ganze Name erscheint beim Darüberfahren mit der Maus.
 
 ## Nächste Schritte
 1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
