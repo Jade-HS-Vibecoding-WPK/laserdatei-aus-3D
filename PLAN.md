@@ -63,7 +63,17 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 
 ## Stand
 - 16.11.: Repo geklont, Interview geführt, PLAN.md und CLAUDE.md angelegt.
+- 16.11.: App-Name festgelegt: **LaserPrep – unfold your ideas** (in README, PLAN, CLAUDE).
+- 16.11.: Laser-Standards festgelegt: Rot 255,0,0 = Schneiden, Blau 0,0,255 = Anritzen,
+  Gelb 255,255,0 = Orientierung, Schwarz = Gravur (gefüllt). Alle Linien 0,00 mm Haarlinie
+  (in SVG dünnste sichtbare Linie, in DXF echte 0,00 mm).
+- 16.11.: Testmodell `beispiel/testhaus.obj` erzeugt: Einheit mm, Y = oben, 6 Objekte
+  (Boden, Decke, Wand_Sued mit Tür + Fenster, Wand_Nord mit Fenster, Wand_West, Wand_Ost mit Fenster).
+  Netz geschlossen (jede Kante gehört zu genau 2 Flächen).
+- 16.11.: Alles auf GitHub (`main`). Git ist auf diesem Rechner mit GitHub verbunden.
+- Noch kein App-Code vorhanden.
 
 ## Nächste Schritte
-1. Testmodell `beispiel/testhaus.obj` erzeugen (4 Wände, Decke, Boden, ein Fenster, eine Tür).
-2. Erstes Feature: OBJ hochladen und 3D-Vorschau anzeigen.
+1. Erstes Feature (neue Sitzung): OBJ-Datei per Drag & Drop laden und als drehbare 3D-Vorschau anzeigen.
+   Prüfstück: `beispiel/testhaus.obj` – alle 6 Platten mit Tür und Fenstern sichtbar.
+2. Danach: Platten flach legen und als 2D-Umrisse anzeigen.
