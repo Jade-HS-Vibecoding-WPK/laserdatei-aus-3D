@@ -6,7 +6,8 @@ Anhand eines 3D-Modells wird eine Laserdatei erstellt.
 ## Benutzung
 `index.html` im Browser öffnen und eine OBJ- oder IFC-Datei auf die Seite ziehen
 (oder „OBJ- oder IFC-Datei wählen“ klicken).
-Zum Ausprobieren liegen Testmodelle in `beispiel/testhaus.obj` und `beispiel/testhaus.ifc`.
+Zum Ausprobieren liegen Testmodelle in `beispiel/testhaus.obj`, `beispiel/testhaus.ifc` (Flachdach)
+und `beispiel/testhaus_walmdach.ifc` (Walmdach).
 
 Aus IFC-Dateien werden Wände, Decken/Böden und Dächer übernommen. Fenster und Türen werden
 weggelassen – in den Wänden bleiben nur ihre Öffnungen. Für IFC braucht die Seite Internet,

@@ -96,6 +96,10 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   (web-ifc liefert Meter), beim nächsten OBJ wieder zurück.
   Testdatei `beispiel/testhaus.ifc` (IFC4, mm, gleiche Maße wie das OBJ-Testhaus + flaches Dach,
   2 Fenster, 1 Tür): 7 Bauteile, Südwand mit Fenster-Loch + Tür am Rand, Nordwand mit Fenster-Loch.
+- 16.11.: Zweite Testdatei `beispiel/testhaus_walmdach.ifc`: gleiches Haus mit Walmdach (35°, 20 cm Überstand),
+  als IfcRoof mit 4 Dachplatten (IfcSlab). Ergebnis: 10 Teile, Dachflächen in wahrer Größe flach gelegt
+  (Süd/Nord Trapez 128 × 53,7 mm, Ost/West Dreieck 88 × 53,7 mm bei 1:50). Gehrungen an den Graten fehlen noch.
+  Beobachtung: lange Namen in der Bauteilliste brechen um, das Maß rutscht dann in die nächste Zeile.
 
 ## Nächste Schritte
 1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
