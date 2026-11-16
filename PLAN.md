@@ -14,7 +14,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 4. **Skalieren:** Alles wird auf den gewählten Modellmaßstab (1:50, 1:100, 1:200 …) verkleinert.
 5. **Anordnen:** Die Teile werden nebeneinander auf die Materialplatte gelegt (Größe einstellbar).
    Passt nicht alles drauf, kommt eine zweite Platte dazu. Alles so platzsparend wie möglich.
-6. **Exportieren:** Download als SVG und DXF, Schnittlinien rot (R 255), Anritzlinie blau (B255), Orientierungslinie gelb (G255) und schwarz als Gravur, Flächen oder Schriften mit Flächenfüllung. Bei der Schriftart darauf achten, dass diese in Auto-CAD hinterlegt ist. Linienstärke 0,00 mm (Haarlinie)
+6. **Exportieren:** Download als SVG und DXF, Schnittlinien rot (R 255), Anritzlinie blau (B255), Orientierungslinie gelb (R255 G255) und schwarz als Gravur, Flächen oder Schriften mit Flächenfüllung. Bei der Schriftart darauf achten, dass diese in Auto-CAD hinterlegt ist. Linienstärke 0,00 mm (Haarlinie)
 7. **Anpassungen** die bei Punkt 6 genannten Farben sind die Standardeinstellungen, man kann sie aber auch individuell ändern.
 
 ## MVP – Must, Should, Could
