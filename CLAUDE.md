@@ -21,7 +21,7 @@ als SVG/DXF für den Lasercutter exportieren. Details, MVP und Stand stehen in P
 - Blau (RGB 0,0,255) = Anritzen
 - Gelb (RGB 255,255,0) = Orientierungslinie/-rahmen
 - Schwarz = Gravur (Flächen oder Schriften mit Flächenfüllung)
-- Alle Linien als Haarlinie mit 0,01 mm Linienstärke
+- Alle Linien als Haarlinie mit 0,00 mm Linienstärke
 - Schriften nur in Schriftarten, die in AutoCAD vorhanden sind
 - Keine doppelten Linien; Teile platzsparend anordnen
 - Modell im CAD 1:1, Modellmaßstab wird erst in der App angewendet
