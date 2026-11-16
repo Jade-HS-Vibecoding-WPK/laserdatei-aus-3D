@@ -21,7 +21,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 ## MVP – Must, Should, Could
 
 ### Must (läuft am Freitag)
-- [ ] OBJ-Datei hochladen und 3D-Vorschau anzeigen
+- [x] OBJ-Datei hochladen und 3D-Vorschau anzeigen
 - [ ] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
 - [ ] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [ ] Doppelte/überlappende Linien automatisch entfernen
@@ -71,9 +71,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   (Boden, Decke, Wand_Sued mit Tür + Fenster, Wand_Nord mit Fenster, Wand_West, Wand_Ost mit Fenster).
   Netz geschlossen (jede Kante gehört zu genau 2 Flächen).
 - 16.11.: Alles auf GitHub (`main`). Git ist auf diesem Rechner mit GitHub verbunden.
-- Noch kein App-Code vorhanden.
+- 16.11.: Erstes Feature fertig: `index.html` – OBJ per Ziehen oder Button „OBJ-Datei wählen“ laden,
+  3D-Vorschau (drehen, verschieben, zoomen), hellgrau mit Kanten wie ein Kartonmodell.
+  Rechts eine Bauteilliste; Maus auf einen Namen → Bauteil leuchtet orange. Akzentfarbe: Orange (#ff6a00).
+  Getestet mit `beispiel/testhaus.obj`: alle 6 Bauteile erkannt, Tür und Fenster sichtbar.
+  three.js r160 (MIT) per CDN, in README genannt.
 
 ## Nächste Schritte
-1. Erstes Feature (neue Sitzung): OBJ-Datei per Drag & Drop laden und als drehbare 3D-Vorschau anzeigen.
-   Prüfstück: `beispiel/testhaus.obj` – alle 6 Platten mit Tür und Fenstern sichtbar.
-2. Danach: Platten flach legen und als 2D-Umrisse anzeigen.
+1. Platten flach legen: größte Fläche jedes Bauteils finden, Umriss + Öffnungen als 2D-Linien.
+2. Danach: 2D-Vorschau der flach gelegten Teile.

@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LaserPrep</title>
+  <style>
+    /* ---------- Gestaltung (Swiss Style) ---------- */
+    :root {
+      --akzent: #ff6a00;      /* Orange – die eine Akzentfarbe */
+      --text: #111;
+      --grau: #777;
+      --linie: #ddd;
+      --hintergrund: #fff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--hintergrund);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 24px;
+      padding: 32px 48px 24px;
+      border-bottom: 1px solid var(--text);
+    }
+    header h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
+    header .slogan { color: var(--grau); font-size: 16px; }
+    header .platz { flex: 1; }
+
+    .button {
+      background: var(--akzent);
+      color: #fff;
+      border: 0;
+      padding: 12px 24px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .button:hover { background: #e55f00; }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      min-height: 0;
+    }
+    #ansicht { position: relative; min-height: 0; overflow: hidden; }
+    #ansicht canvas { display: block; }
+
+    /* Hinweis in der Mitte, solange noch kein Modell geladen ist */
+    #hinweis {
+      position: absolute; inset: 48px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 2px dashed var(--linie);
+      color: var(--grau);
+      text-align: center;
+      pointer-events: none;
+    }
+    #hinweis strong { color: var(--text); font-size: 24px; margin-bottom: 8px; }
+
+    /* Rahmen, der beim Darüberziehen einer Datei erscheint */
+    body.ziehen #ansicht::after {
+      content: "Loslassen zum Laden";
+      position: absolute; inset: 16px;
+      display: flex; align-items: center; justify-content: center;
+      border: 3px solid var(--akzent);
+      background: rgba(255, 106, 0, 0.06);
+      color: var(--akzent); font-size: 24px; font-weight: 700;
+    }
+
+    aside {
+      border-left: 1px solid var(--text);
+      padding: 24px;
+      overflow-y: auto;
+    }
+    aside h2 { margin: 0 0 4px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    #dateiname { color: var(--grau); font-size: 14px; margin: 0 0 24px; word-break: break-all; }
+    #teile { list-style: none; margin: 0; padding: 0; counter-reset: teil; }
+    #teile li {
+      counter-increment: teil;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--linie);
+      cursor: default;
+    }
+    #teile li::before {
+      content: counter(teil, decimal-leading-zero);
+      display: inline-block; width: 32px; color: var(--grau);
+    }
+    #teile li:hover { color: var(--akzent); }
+    #fehler { color: #c00; font-size: 14px; }
+    .steuerung { color: var(--grau); font-size: 12px; margin-top: 24px; line-height: 1.6; }
+  </style>
+
+  <!-- three.js (MIT-Lizenz) in fester Version vom CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>LaserPrep</h1>
+    <span class="slogan">unfold your ideas</span>
+    <span class="platz"></span>
+    <button class="button" id="waehlen">OBJ-Datei wählen</button>
+    <input type="file" id="datei" accept=".obj" hidden>
+  </header>
+
+  <main>
+    <div id="ansicht">
+      <div id="hinweis">
+        <strong>OBJ-Datei hierher ziehen</strong>
+        oder oben auf „OBJ-Datei wählen“ klicken
+      </div>
+    </div>
+    <aside>
+      <h2>Bauteile</h2>
+      <p id="dateiname">Noch kein Modell geladen</p>
+      <ul id="teile"></ul>
+      <p id="fehler"></p>
+      <p class="steuerung">
+        Linke Maustaste: drehen<br>
+        Rechte Maustaste: verschieben<br>
+        Mausrad: zoomen
+      </p>
+    </aside>
+  </main>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ---------- 1. Die 3D-Bühne aufbauen ----------
+    const ansicht = document.getElementById('ansicht');
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0xffffff);
+    ansicht.appendChild(renderer.domElement);
+
+    const szene = new THREE.Scene();
+    const kamera = new THREE.PerspectiveCamera(40, 1, 1, 1e7);
+    kamera.position.set(1, 1, 1);
+
+    // Licht: weiches Grundlicht + eine "Sonne" für Schatten-Abstufungen
+    szene.add(new THREE.HemisphereLight(0xffffff, 0xcccccc, 2.2));
+    const sonne = new THREE.DirectionalLight(0xffffff, 1.2);
+    sonne.position.set(1, 2, 1.5);
+    szene.add(sonne);
+
+    // Maus-Steuerung: drehen, verschieben, zoomen
+    const steuerung = new OrbitControls(kamera, renderer.domElement);
+    steuerung.enableDamping = true;
+
+    // Fenstergröße anpassen
+    function groesseAnpassen() {
+      const b = ansicht.clientWidth, h = ansicht.clientHeight;
+      renderer.setSize(b, h);
+      kamera.aspect = b / h;
+      kamera.updateProjectionMatrix();
+    }
+    new ResizeObserver(groesseAnpassen).observe(ansicht);
+
+    // Dauerschleife, die das Bild immer neu zeichnet
+    renderer.setAnimationLoop(() => {
+      steuerung.update();
+      renderer.render(szene, kamera);
+    });
+
+    // ---------- 2. Aussehen der Bauteile ----------
+    const AKZENT = 0xff6a00;
+    const kartonMaterial = new THREE.MeshStandardMaterial({
+      color: 0xeeeeee, roughness: 0.9, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const kantenMaterial = new THREE.LineBasicMaterial({ color: 0x333333 });
+
+    let modell = null;
+
+    // ---------- 3. Eine OBJ-Datei laden und anzeigen ----------
+    function zeigeModell(text, dateiname) {
+      const fehler = document.getElementById('fehler');
+      fehler.textContent = '';
+
+      let gruppe;
+      try {
+        gruppe = new OBJLoader().parse(text);
+      } catch (e) {
+        fehler.textContent = 'Die Datei konnte nicht gelesen werden.';
+        return;
+      }
+
+      const bauteile = [];
+      gruppe.traverse(obj => { if (obj.isMesh) bauteile.push(obj); });
+      if (bauteile.length === 0) {
+        fehler.textContent = 'In der Datei wurden keine Bauteile gefunden.';
+        return;
+      }
+
+      // Altes Modell entfernen
+      if (modell) szene.remove(modell);
+      modell = gruppe;
+
+      // Jedes Bauteil: hellgrau wie Karton + feine Kanten
+      bauteile.forEach(teil => {
+        teil.material = kartonMaterial.clone();
+        const kanten = new THREE.LineSegments(
+          new THREE.EdgesGeometry(teil.geometry, 20), kantenMaterial
+        );
+        teil.add(kanten);
+      });
+      szene.add(modell);
+
+      // Modell in die Mitte rücken und Kamera passend weit weg stellen
+      const box = new THREE.Box3().setFromObject(modell);
+      const mitte = box.getCenter(new THREE.Vector3());
+      const groesse = box.getSize(new THREE.Vector3()).length();
+      modell.position.sub(mitte);
+      kamera.position.set(groesse * 0.9, groesse * 0.7, groesse * 1.1);
+      kamera.near = groesse / 1000;
+      kamera.far = groesse * 100;
+      kamera.updateProjectionMatrix();
+      steuerung.target.set(0, 0, 0);
+      steuerung.update();
+
+      // Seitenleiste füllen
+      document.getElementById('hinweis').style.display = 'none';
+      document.getElementById('dateiname').textContent =
+        `${dateiname} · ${bauteile.length} Bauteile`;
+      const liste = document.getElementById('teile');
+      liste.innerHTML = '';
+      bauteile.forEach((teil, i) => {
+        const li = document.createElement('li');
+        li.textContent = teil.name || `Bauteil ${i + 1}`;
+        // Mit der Maus über den Namen fahren → Bauteil leuchtet orange
+        li.addEventListener('mouseenter', () => teil.material.color.set(AKZENT));
+        li.addEventListener('mouseleave', () => teil.material.color.set(0xeeeeee));
+        liste.appendChild(li);
+      });
+    }
+
+    function ladeDatei(datei) {
+      if (!datei) return;
+      if (!datei.name.toLowerCase().endsWith('.obj')) {
+        document.getElementById('fehler').textContent = 'Bitte eine .obj-Datei verwenden.';
+        return;
+      }
+      datei.text().then(text => zeigeModell(text, datei.name));
+    }
+
+    // ---------- 4. Wege, eine Datei hineinzubekommen ----------
+    // a) Hauptbutton
+    const eingabe = document.getElementById('datei');
+    document.getElementById('waehlen').addEventListener('click', () => eingabe.click());
+    eingabe.addEventListener('change', () => { ladeDatei(eingabe.files[0]); eingabe.value = ''; });
+
+    // b) Datei auf die Seite ziehen
+    window.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('ziehen'); });
+    window.addEventListener('dragleave', e => {
+      if (e.relatedTarget === null) document.body.classList.remove('ziehen');
+    });
+    window.addEventListener('drop', e => {
+      e.preventDefault();
+      document.body.classList.remove('ziehen');
+      ladeDatei(e.dataTransfer.files[0]);
+    });
+
+    // Für Tests: Modell direkt aus Text laden
+    window.laserprep = { zeigeModell };
+  </script>
+</body>
+</html>
