@@ -37,7 +37,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 
 ### Could (wenn Zeit bleibt)
 - [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen
-- [ ] IFC-Dateien direkt aus Archicad einlesen
+- [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
 - [ ] Fugen/Fensterlinien auf Fassaden als Gravur übernehmen
 - [ ] PDF-Export
 
@@ -87,9 +87,18 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Südwand mit Tür (am Rand) und Fenster.
 - Beobachtung: Im Testhaus haben nur Wand_Sued echte Öffnungen. Wand_Nord und Wand_Ost sind
   in der OBJ in Abschnitte geteilt, aber alle Abschnitte sind geschlossen (kein Fenster-Loch).
+- 16.11.: Drittes Feature fertig: IFC-Dateien laden (zusätzlich zu OBJ).
+  Bibliothek web-ifc 0.0.78 (MPL-2.0) per CDN; sie wird nur geladen, wenn eine IFC-Datei kommt,
+  und holt ihren Rechenkern (WASM) ebenfalls vom CDN – klappt darum ohne eigenen Server.
+  Übernommen werden IfcWall, IfcWallStandardCase, IfcSlab, IfcRoof; Fenster und Türen werden
+  weggelassen (in der Wand bleibt das Loch). Jedes Bauteil wird ein Mesh mit seinem IFC-Namen,
+  Flachlegen und SVG laufen unverändert. Einheit wird bei IFC automatisch auf „m“ gestellt
+  (web-ifc liefert Meter), beim nächsten OBJ wieder zurück.
+  Testdatei `beispiel/testhaus.ifc` (IFC4, mm, gleiche Maße wie das OBJ-Testhaus + flaches Dach,
+  2 Fenster, 1 Tür): 7 Bauteile, Südwand mit Fenster-Loch + Tür am Rand, Nordwand mit Fenster-Loch.
 
 ## Nächste Schritte
 1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
 2. Platzsparendes Anordnen und mehrere Platten.
 3. DXF-Export.
-4. Echtes Archicad-Modell testen.
+4. Echtes Archicad-Modell testen (OBJ und IFC).

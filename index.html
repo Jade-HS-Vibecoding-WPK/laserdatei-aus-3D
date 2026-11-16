@@ -149,16 +149,16 @@
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
     <span class="platz"></span>
-    <button class="button" id="waehlen">OBJ-Datei wählen</button>
-    <input type="file" id="datei" accept=".obj" hidden>
+    <button class="button" id="waehlen">OBJ- oder IFC-Datei wählen</button>
+    <input type="file" id="datei" accept=".obj,.ifc" hidden>
   </header>
 
   <main>
     <div class="links">
       <div id="ansicht">
         <div id="hinweis">
-          <strong>OBJ-Datei hierher ziehen</strong>
-          oder oben auf „OBJ-Datei wählen“ klicken
+          <strong>OBJ- oder IFC-Datei hierher ziehen</strong>
+          oder oben auf „OBJ- oder IFC-Datei wählen“ klicken
         </div>
       </div>
       <div id="platte-bereich">
@@ -266,17 +266,103 @@
 
     // ---------- 3. Eine OBJ-Datei laden und anzeigen ----------
     function zeigeModell(text, dateiname) {
-      const fehler = document.getElementById('fehler');
-      fehler.textContent = '';
-
+      document.getElementById('fehler').textContent = '';
       let gruppe;
       try {
         gruppe = new OBJLoader().parse(text);
       } catch (e) {
-        fehler.textContent = 'Die Datei konnte nicht gelesen werden.';
+        document.getElementById('fehler').textContent = 'Die Datei konnte nicht gelesen werden.';
         return;
       }
+      if (einheitVorIfc !== null) {             // vorher war eine IFC-Datei geladen
+        document.getElementById('einheit').value = einheitVorIfc;
+        einheitVorIfc = null;
+      }
+      zeigeGruppe(gruppe, dateiname);
+    }
 
+    // ---------- 3b. Eine IFC-Datei (z. B. aus Archicad) laden ----------
+    // Dafür gibt es die freie Bibliothek web-ifc (MPL-2.0). Sie wird erst geladen,
+    // wenn wirklich eine IFC-Datei kommt, und holt sich ihren Rechenkern
+    // (web-ifc.wasm) vom selben CDN – darum klappt es auch ohne eigenen Server.
+    const WEB_IFC = 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.78/';
+    // Diese Bauteiltypen werden übernommen. Fenster und Türen fehlen absichtlich:
+    // In den Wänden bleiben nur ihre Löcher.
+    const IFC_TYPEN = ['IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCSLAB', 'IFCROOF'];
+    let ifc = null;
+    let einheitVorIfc = null;
+
+    async function ifcBibliothek() {
+      if (!ifc) {
+        const WebIFC = await import(WEB_IFC + 'web-ifc-api.js');
+        const api = new WebIFC.IfcAPI();
+        api.SetWasmPath(WEB_IFC, true);
+        await api.Init();
+        ifc = { api, WebIFC };
+      }
+      return ifc;
+    }
+
+    // Jedes IFC-Bauteil wird ein eigenes Mesh mit Namen – genau wie ein Objekt in der OBJ-Datei.
+    async function ifcZuGruppe(daten) {
+      const { api, WebIFC } = await ifcBibliothek();
+      const modellId = api.OpenModel(new Uint8Array(daten));
+      const gruppe = new THREE.Group();
+      const matrix = new THREE.Matrix4(), p = new THREE.Vector3();
+      try {
+        api.StreamAllMeshesWithTypes(modellId, IFC_TYPEN.map(t => WebIFC[t]), mesh => {
+          const punkte = [];
+          for (let i = 0; i < mesh.geometries.size(); i++) {
+            const teilstueck = mesh.geometries.get(i);
+            const geo = api.GetGeometry(modellId, teilstueck.geometryExpressID);
+            const ecken = api.GetVertexArray(geo.GetVertexData(), geo.GetVertexDataSize());  // je 6 Zahlen: x y z + Richtung
+            const dreiecke = api.GetIndexArray(geo.GetIndexData(), geo.GetIndexDataSize());
+            matrix.fromArray(teilstueck.flatTransformation);
+            for (const k of dreiecke) {
+              p.set(ecken[k * 6], ecken[k * 6 + 1], ecken[k * 6 + 2]).applyMatrix4(matrix);
+              punkte.push(p.x, p.y, p.z);
+            }
+            geo.delete();
+          }
+          if (!punkte.length) return;                // Bauteil ohne Körper (z. B. nur Sammelobjekt)
+          const geometrie = new THREE.BufferGeometry();
+          geometrie.setAttribute('position', new THREE.Float32BufferAttribute(punkte, 3));
+          geometrie.computeVertexNormals();
+          const teil = new THREE.Mesh(geometrie);
+          const name = api.GetLine(modellId, mesh.expressID)?.Name?.value;
+          const typ = api.GetNameFromTypeCode(api.GetLineType(modellId, mesh.expressID));
+          teil.name = name || `${typ} #${mesh.expressID}`;
+          gruppe.add(teil);
+        });
+      } finally {
+        api.CloseModel(modellId);
+      }
+      return gruppe;
+    }
+
+    async function zeigeIfc(daten, dateiname) {
+      const fehler = document.getElementById('fehler');
+      fehler.textContent = 'IFC-Datei wird gelesen …';
+      let gruppe;
+      try {
+        gruppe = await ifcZuGruppe(daten);
+      } catch (e) {
+        console.error(e);
+        fehler.textContent = 'Die IFC-Datei konnte nicht gelesen werden. (Internet nötig für den IFC-Leser.)';
+        return;
+      }
+      fehler.textContent = '';
+      // web-ifc rechnet alle Maße in Meter um – darum Einheit auf „m“ stellen
+      // (die alte Einstellung merken, damit sie beim nächsten OBJ wieder gilt)
+      const einheit = document.getElementById('einheit');
+      if (einheitVorIfc === null) einheitVorIfc = einheit.value;
+      einheit.value = '1000';
+      zeigeGruppe(gruppe, dateiname);
+    }
+
+    // ---------- 3c. Fertige Bauteile anzeigen (für OBJ und IFC gleich) ----------
+    function zeigeGruppe(gruppe, dateiname) {
+      const fehler = document.getElementById('fehler');
       const bauteile = [];
       gruppe.traverse(obj => { if (obj.isMesh) bauteile.push(obj); });
       if (bauteile.length === 0) {
@@ -333,7 +419,7 @@
         flacheTeile.push({ name, zuege: flach ? flach.zuege : [], massFeld: mass });
       });
 
-      dateiBasis = dateiname.replace(/\.obj$/i, '');
+      dateiBasis = dateiname.replace(/\.(obj|ifc)$/i, '');
       document.body.classList.add('geladen');
       document.getElementById('waehlen').classList.add('zweit');
       laserNeuBerechnen();
@@ -580,11 +666,14 @@ ${pfade}
 
     function ladeDatei(datei) {
       if (!datei) return;
-      if (!datei.name.toLowerCase().endsWith('.obj')) {
-        document.getElementById('fehler').textContent = 'Bitte eine .obj-Datei verwenden.';
-        return;
+      const name = datei.name.toLowerCase();
+      if (name.endsWith('.obj')) {
+        datei.text().then(text => zeigeModell(text, datei.name));
+      } else if (name.endsWith('.ifc')) {
+        datei.arrayBuffer().then(daten => zeigeIfc(daten, datei.name));
+      } else {
+        document.getElementById('fehler').textContent = 'Bitte eine .obj- oder .ifc-Datei verwenden.';
       }
-      datei.text().then(text => zeigeModell(text, datei.name));
     }
 
     // ---------- 4. Wege, eine Datei hineinzubekommen ----------
@@ -605,7 +694,7 @@ ${pfade}
     });
 
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell, svg: () => aktuellesSvg };
+    window.laserprep = { zeigeModell, zeigeIfc, svg: () => aktuellesSvg };
   </script>
 </body>
 </html>
