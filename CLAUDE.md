@@ -28,4 +28,6 @@ als SVG/DXF für den Lasercutter exportieren. Details, MVP und Stand stehen in P
 
 # Gestaltung
 - Swiss Style: viel Weißraum, eine Akzentfarbe, klare Schrift
+- Bento-Grid mit runden Ecken; aktive Kachel orange gefüllt mit weißer Schrift, inaktive weiß mit grauer Schrift
+- Schrift: Space Grotesk (frei, OFL) als Ersatz für die kostenpflichtige Gumroad-Schrift Mabry Pro
 - Ein Hauptbutton pro Ansicht

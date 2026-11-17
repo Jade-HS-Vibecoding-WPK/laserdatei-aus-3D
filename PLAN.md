@@ -151,6 +151,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Noch offen: Stößt ein Teil an ein Teil auf einer anderen Pappe, wird mit der eigenen Dicke gekürzt
   (richtig wäre die Dicke der durchlaufenden Platte) – das klären wir mit den Gruppen.
 
+- 17.11.: Aussehen überarbeitet: Kacheln mit runden Ecken; die aktive Kachel ist orange gefüllt mit weißer
+  Schrift (Buttons darin weiß mit oranger Schrift, Farblegende und Plattenkarten auf weißem Grund),
+  erledigte und gesperrte Kacheln sind weiß mit grauer Schrift. Hauptschrift **Space Grotesk** (Google Fonts,
+  freie OFL-Lizenz) – Gumroads eigene Schrift Mabry Pro ist kostenpflichtig, darum dieser freie Ersatz.
+  Ohne Internet fällt die Seite auf Helvetica/Arial zurück.
+
 ## Nächste Schritte
 1. Farben individuell zuordnen (Kachel 04).
 2. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).

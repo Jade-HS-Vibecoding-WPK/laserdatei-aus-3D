@@ -4,8 +4,9 @@
 Anhand eines 3D-Modells wird eine Laserdatei erstellt.
 
 ## Benutzung
-`index.html` im Browser öffnen und eine OBJ- oder IFC-Datei auf die Seite ziehen
-(oder „OBJ- oder IFC-Datei wählen“ klicken).
+`index.html` im Browser öffnen und die Kacheln der Reihe nach ausfüllen: 01 Pappe, 02 Datei
+(OBJ oder IFC auf die Seite ziehen oder „OBJ- oder IFC-Datei wählen“ klicken), 03 Maßstab, 04 Farben,
+05 Gehrung, 06 Bauteile, 07 Vorschau mit Download (eine SVG pro Platte).
 Zum Ausprobieren liegen Testmodelle in `beispiel/testhaus.obj`, `beispiel/testhaus.ifc` (Flachdach)
 und `beispiel/testhaus_walmdach.ifc` (Walmdach).
 
@@ -17,3 +18,4 @@ weil der IFC-Leser beim ersten Mal vom CDN geladen wird.
 - [three.js](https://threejs.org) r160 – 3D-Darstellung und OBJ-Import, MIT-Lizenz
 - [web-ifc](https://github.com/ThatOpen/engine_web-ifc) 0.0.78 – IFC-Dateien lesen, MPL-2.0-Lizenz
   (unverändert per CDN eingebunden)
+- [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) – Schrift, SIL Open Font License (OFL), über Google Fonts eingebunden

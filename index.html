@@ -4,8 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LaserPrep</title>
+  <!-- Schrift Space Grotesk (freie OFL-Lizenz) von Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* ---------- Gestaltung (Swiss Style) ---------- */
+    /* ---------- Gestaltung (Swiss Style, runde Bento-Kacheln, Schrift Space Grotesk) ---------- */
     :root {
       --akzent: #ff6a00;      /* Orange – die eine Akzentfarbe */
       --text: #111;
@@ -13,11 +17,13 @@
       --linie: #ddd;
       --hintergrund: #fff;
       --flaeche: #f2f2f2;     /* Hintergrund zwischen den Kacheln */
+      --rund: 16px;           /* Ecken der Kacheln */
+      --rund-klein: 8px;      /* Ecken von Feldern und Buttons */
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; }
     body {
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
       color: var(--text);
       background: var(--flaeche);
     }
@@ -40,6 +46,7 @@
       font: inherit;
       font-weight: 700;
       cursor: pointer;
+      border-radius: var(--rund-klein);
     }
     .button:hover { background: #e55f00; }
     .button:disabled { background: var(--linie); color: var(--grau); cursor: default; }
@@ -79,37 +86,57 @@
     .kachel {
       background: var(--hintergrund);
       border: 1px solid var(--linie);
+      border-radius: var(--rund);
       padding: 20px;
       min-width: 0;
       display: flex; flex-direction: column; gap: 12px;
+      color: var(--grau);
+      transition: background-color 0.2s, color 0.2s;
     }
     .kopf { display: flex; align-items: baseline; gap: 12px; }
-    .kopf .nr { font-size: 28px; font-weight: 700; color: var(--grau); line-height: 1; }
-    .kopf h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-    .frage { margin: 0; font-size: 14px; color: var(--grau); line-height: 1.5; }
-    .zusammenfassung { display: none; margin: 0; font-size: 14px; color: var(--grau); }
+    .kopf .nr { font-size: 28px; font-weight: 700; line-height: 1; }
+    .kopf h2 { margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .frage { margin: 0; font-size: 14px; line-height: 1.5; }
+    .zusammenfassung { display: none; margin: 0; font-size: 14px; }
     .kachel .weiter { align-self: flex-start; }
 
-    /* Zustände eines Schritts */
-    .kachel.aktiv { border: 2px solid var(--akzent); padding: 19px; }
-    .kachel.aktiv .nr { color: var(--akzent); }
+    /* Zustände eines Schritts: aktiv = orange gefüllt mit weißer Schrift,
+       erledigt und gesperrt = weiß mit grauer Schrift */
+    .kachel.aktiv { background: var(--akzent); border-color: var(--akzent); color: #fff; }
+    .kachel.aktiv .frage, .kachel.aktiv .klein, .kachel.aktiv .feld label,
+    .kachel.aktiv .anzahl-text, .kachel.aktiv #dateiname, .kachel.aktiv #platte-info { color: rgba(255, 255, 255, 0.85); }
+    /* Buttons auf Orange: weiß mit oranger Schrift */
+    .kachel.aktiv .button { background: #fff; color: var(--akzent); }
+    .kachel.aktiv .button:hover { background: rgba(255, 255, 255, 0.85); }
+    .kachel.aktiv .textbutton, .kachel.aktiv .entfernen { color: #fff; }
+    .kachel.aktiv select, .kachel.aktiv input { border-color: #fff; color: var(--text); }
+    .kachel.aktiv select:focus, .kachel.aktiv input:focus { outline-color: var(--text); }
+    .kachel.aktiv #fehler, .kachel.aktiv #meldung { color: #fff; font-weight: 700; }
+    .kachel.aktiv #meldung.ok { font-weight: 400; color: rgba(255, 255, 255, 0.85); }
+    .kachel.aktiv #meldung span { color: inherit !important; }
+    .kachel.aktiv #teile li { border-color: rgba(255, 255, 255, 0.35); }
+    .kachel.aktiv #teile li::before, .kachel.aktiv #teile li .mass { color: rgba(255, 255, 255, 0.75); }
+    .kachel.aktiv #teile li:hover { color: var(--text); }
+    /* Die Farblegende braucht weißen Grund, sonst sieht man Rot und Gelb nicht */
+    .kachel.aktiv .farben { background: #fff; color: var(--text); border-radius: var(--rund-klein); padding: 8px 12px; }
     .kachel.erledigt { cursor: pointer; }
     .kachel.erledigt:hover { border-color: var(--akzent); }
     .kachel.erledigt .inhalt { display: none; }
     .kachel.erledigt .zusammenfassung { display: block; }
     .kachel.erledigt .zusammenfassung::after { content: "  ändern"; color: var(--akzent); }
-    .kachel.gesperrt { opacity: 0.4; }
+    .kachel.gesperrt { color: #bbb; }
     .kachel.gesperrt .inhalt { display: none; }
     .inhalt { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 
     /* 3D-Modell */
     #k-modell { padding: 0; min-height: 420px; position: relative; }
-    #ansicht { position: absolute; inset: 0; overflow: hidden; }
+    #ansicht { position: absolute; inset: 0; overflow: hidden; border-radius: var(--rund); }
     #ansicht canvas { display: block; }
     #hinweis {
       position: absolute; inset: 24px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border: 2px dashed var(--linie);
+      border-radius: var(--rund-klein);
       color: var(--grau);
       text-align: center;
       pointer-events: none;
@@ -126,6 +153,7 @@
       position: absolute; inset: 16px;
       display: flex; align-items: center; justify-content: center;
       border: 3px solid var(--akzent);
+      border-radius: var(--rund-klein);
       background: rgba(255, 106, 0, 0.06);
       color: var(--akzent); font-size: 24px; font-weight: 700;
     }
@@ -160,6 +188,7 @@
     select, input[type=number], input[type=text] {
       font: inherit; font-size: 14px; padding: 6px 8px;
       border: 1px solid var(--linie); background: #fff; width: 100%; min-width: 0;
+      border-radius: var(--rund-klein);
     }
     select:focus, input:focus { outline: 2px solid var(--akzent); outline-offset: -1px; }
 
@@ -174,9 +203,10 @@
     #k-vorschau .inhalt { flex: 1; }
     #platte-info { font-size: 14px; color: var(--grau); }
     .gesperrt #platte-info { display: none; }
-    /* Mehrere Platten nebeneinander; eine einzelne Platte nutzt die ganze Breite */
+    /* Mehrere Platten nebeneinander; eine einzelne Platte nutzt die ganze Breite.
+       Die Karten bleiben immer weiß, auch wenn die Vorschau-Kachel orange ist. */
     #platten { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
-    .platte { margin: 0; border: 1px solid var(--linie); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .platte { margin: 0; border: 1px solid var(--linie); border-radius: 12px; background: #fff; color: var(--text); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
     .platte figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
     .platte figcaption .info { color: var(--grau); }
     .platte .bild svg { width: 100%; height: auto; max-height: 60vh; display: block; }
