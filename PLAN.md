@@ -26,7 +26,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [ ] Doppelte/überlappende Linien automatisch entfernen
 - [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(teilweise: Farben einstellbar; in der SVG gibt es bisher nur Schneiden + Orientierungsrahmen, Anritzen/Gravur folgen)*
-- [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(teilweise: mehrere Sorten und Platten, Teile zeilenweise; wirklich platzsparend fehlt noch)*
+- [x] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(mehrere Sorten und Platten, Teile gedreht und dicht ineinander gelegt)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
 - [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
 
@@ -201,10 +201,20 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet (1:50, 2 mm): OBJ-Testhaus Wände 120 × 68 / 80 × 68 mm, Linien 2 mm innen, an der Tür unterbrochen;
   Walmdach: Dachdreiecke 91,4 × 55,8 mm, Linien parallel zu den Graten. Stumpf bleibt unverändert (keine blaue Gruppe).
 
+- 17.11.: **Platzsparend anordnen**: Die Teile liegen nicht mehr zeilenweise, sondern werden gedreht und mit ihrer
+  echten Form ineinandergeschoben. So funktioniert es: Die Pappe wird in ein Raster aus etwa 1,5-mm-Kästchen geteilt,
+  jedes Teil wird in mehreren Drehungen gerastert (0°, 90°, 180°, 270° und so, dass eine der längsten Kanten
+  waagerecht liegt). Die großen Teile kommen zuerst; jedes Teil kommt an die Stelle oben links, an der es am wenigsten
+  nach unten ragt, ohne andere Teile oder den Abstand zu verletzen. Teile werden nie gespiegelt (wichtig für die
+  Gehrung), Anritzlinien drehen mit. Neues Feld **„Abstand (mm)“** in Kachel 07 (Standard 5 mm) für den Abstand
+  zwischen den Teilen und zum Rand. Wirkt auch auf mehrere Platten und den Formatvorschlag.
+  Getestet mit dem Walmdach-Haus (1:50): alle 10 Teile auf einer Platte, Trapeze gedreht nebeneinander; der
+  Formatvorschlag nutzt die Pappe jetzt zu etwa 51 % statt 34 %. Rechenzeit etwa 10 ms pro Neuberechnung.
+  Hinweis: Die Anordnung ändert sich dadurch auch bei „stumpf“ (andere Lage der Teile, gleiche Umrisse).
+
 ## Nächste Schritte
 1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
-2. Wirklich platzsparend anordnen (statt zeilenweise).
-3. Doppelte Linien entfernen.
-4. DXF-Export.
-5. Echtes Archicad-Modell testen (OBJ und IFC).
-6. Kanten: „Auffalten“ (Kachel 05).
+2. Doppelte Linien entfernen.
+3. DXF-Export.
+4. Echtes Archicad-Modell testen (OBJ und IFC).
+5. Kanten: „Auffalten“ (Kachel 05).

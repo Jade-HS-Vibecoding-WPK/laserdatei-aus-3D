@@ -282,6 +282,8 @@
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
+    .abstand-feld { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+    .abstand-feld input { width: 64px; }
 
     /* Mauszeiger als Punkt: orange auf hellen Flächen, weiß auf Orange.
        Nur mit echter Maus – auf Touch-Geräten bleibt alles wie gewohnt. */
@@ -529,6 +531,9 @@
         <div class="vorschlag" id="vorschlag" hidden></div>
         <div id="platten"></div>
         <div class="fuss">
+          <label class="abstand-feld">Abstand
+            <input type="number" id="abstand" value="5" min="0" step="0.5" aria-label="Abstand zwischen den Teilen in mm"> mm
+          </label>
           <p id="meldung"></p>
           <button class="button" id="herunterladen">SVG herunterladen</button>
         </div>
@@ -1128,7 +1133,181 @@
     let flacheTeile = [];
     let dateiBasis = 'laserdatei';
     let platten = [];                        // fertige Platten: { pappe, nr, platziert, svg }
-    const ABSTAND = 5;                       // mm zwischen den Teilen und zum Plattenrand
+    // Abstand zwischen den Teilen und zum Plattenrand in mm (Feld in Kachel 07, Standard 5 mm)
+    function abstandMm() {
+      const w = parseFloat(document.getElementById('abstand').value);
+      return w >= 0 ? w : 5;
+    }
+
+    // ---------- 6a. Platzsparend anordnen ----------
+    // Idee: Die Pappe wird in ein feines Raster aus Kästchen geteilt (etwa 1,5 mm).
+    // Jedes Teil wird in mehreren Drehungen ebenfalls gerastert – mit seiner echten Form,
+    // nicht nur als Rechteck. Dann wird jedes Teil (die großen zuerst) so weit oben links
+    // wie möglich hingelegt, wo es keine belegten Kästchen trifft. Von allen Drehungen
+    // gewinnt die, die am wenigsten nach unten ragt. So rutschen z. B. Dachdreiecke
+    // umgedreht ineinander.
+    const drehSpeicher = new WeakMap();
+
+    function aussenIndex(zuege) {
+      let beste = 0, groesste = -1;
+      zuege.forEach((z, i) => { const a = Math.abs(flaecheVon(z)); if (a > groesste) { groesste = a; beste = i; } });
+      return beste;
+    }
+
+    // Alle sinnvollen Drehungen eines Teils: 0°, 90°, 180°, 270° und so, dass eine
+    // der längsten Kanten waagerecht oder senkrecht liegt (wichtig für schräge Teile)
+    function drehungen(teil) {
+      if (drehSpeicher.has(teil)) return drehSpeicher.get(teil);
+      const ai = aussenIndex(teil.zuege), z = teil.zuege[ai];
+      const winkel = [0, 90, 180, 270];
+      z.map((p, i) => { const q = z[(i + 1) % z.length]; return { l: Math.hypot(q[0] - p[0], q[1] - p[1]), w: Math.atan2(q[1] - p[1], q[0] - p[0]) * 180 / Math.PI }; })
+        .sort((a, b) => b.l - a.l).slice(0, 3)
+        .forEach(k => { for (let j = 0; j < 4; j++) winkel.push(-k.w + j * 90); });
+      const eindeutig = [];
+      winkel.map(w => ((w % 360) + 360) % 360).forEach(w => {
+        if (!eindeutig.some(e => Math.min(Math.abs(e - w), 360 - Math.abs(e - w)) < 0.5)) eindeutig.push(w);
+      });
+      const varianten = eindeutig.map(w => drehe(teil, w, ai));
+      drehSpeicher.set(teil, varianten);
+      return varianten;
+    }
+
+    function drehe(teil, grad, ai) {
+      const a = grad * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+      const rot = ([x, y]) => [x * c - y * s, x * s + y * c];
+      const zuege = teil.zuege.map(z => z.map(rot));
+      const ritzen = (teil.ritzen || []).map(l => l.map(rot));
+      const alle = zuege.flat();
+      const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
+      const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
+      return { ...teil, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, winkel: grad, ai, raster: new Map() };
+    }
+
+    // Teil rastern: pro Kästchenzeile die belegten Bereiche [von, bis]. „fuss“ = die echte
+    // Fläche, „dicht“ = um den Abstand vergrößert (damit Teile nicht zu nah kommen)
+    function rastern(v, r, rand) {
+      const schluessel = r + '|' + rand;
+      if (v.raster.has(schluessel)) return v.raster.get(schluessel);
+      const zug = v.zuege[v.ai];
+      const wc = Math.ceil(v.b / r - 1e-9), hc = Math.ceil(v.h / r - 1e-9);
+      const vereinen = liste => {
+        liste.sort((p, q) => p[0] - q[0]);
+        const aus = [];
+        for (const [a, b] of liste) {
+          if (aus.length && a <= aus[aus.length - 1][1] + 1) aus[aus.length - 1][1] = Math.max(aus[aus.length - 1][1], b);
+          else aus.push([a, b]);
+        }
+        return aus;
+      };
+      const fuss = [];
+      for (let j = 0; j < hc; j++) {
+        const bereiche = [];
+        for (const f of [0.02, 0.5, 0.98]) {                 // drei Messlinien pro Zeile
+          const y = v.maxY - (j + f) * r, xs = [];
+          for (let i = 0; i < zug.length; i++) {
+            const [x1, y1] = zug[i], [x2, y2] = zug[(i + 1) % zug.length];
+            if ((y1 <= y) !== (y2 <= y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+          }
+          xs.sort((a, b) => a - b);
+          for (let i = 0; i + 1 < xs.length; i += 2) {
+            const a = Math.max(0, Math.floor((xs[i] - v.minX) / r)), b = Math.min(wc - 1, Math.ceil((xs[i + 1] - v.minX) / r) - 1);
+            if (a <= b) bereiche.push([a, b]);
+          }
+        }
+        fuss.push(vereinen(bereiche));
+      }
+      const zeilen = [];
+      for (let J = -rand; J < hc + rand; J++) {
+        const bereiche = [];
+        for (let j = Math.max(0, J - rand); j <= Math.min(hc - 1, J + rand); j++) fuss[j].forEach(([a, b]) => bereiche.push([a - rand, b + rand]));
+        zeilen.push(vereinen(bereiche));
+      }
+      const ras = { wc, hc, fuss, dicht: { versatz: -rand, zeilen } };
+      v.raster.set(schluessel, ras);
+      return ras;
+    }
+
+    function neueTafel(pappe, r) {
+      const Wc = Math.floor(pappe.breite / r), Hc = Math.floor(pappe.hoehe / r);
+      const letzte = new Int32Array(Wc * Hc).fill(-1);   // pro Zeile: letztes belegtes Kästchen bis hierher
+      return { Wc, Hc, r, belegt: new Uint8Array(Wc * Hc), letzte, platziert: [] };
+    }
+
+    function frei(tafel, ras, cx, cy) {
+      const { Wc, Hc, letzte } = tafel;
+      const { versatz, zeilen } = ras.dicht;
+      for (let i = 0; i < zeilen.length; i++) {
+        const zeile = cy + versatz + i;
+        if (zeile < 0 || zeile >= Hc) continue;
+        for (const [a, b] of zeilen[i]) {
+          const A = Math.max(0, cx + a), B = Math.min(Wc - 1, cx + b);
+          if (A > B) continue;
+          const L = letzte[zeile * Wc + B];
+          if (L >= A) return L - (cx + a) + 1;         // besetzt: so weit nach rechts springen
+        }
+      }
+      return 0;
+    }
+
+    function setzen(tafel, ras, cx, cy) {
+      const { Wc, belegt, letzte } = tafel;
+      ras.fuss.forEach((bereiche, j) => {
+        const zeile = cy + j, basis = zeile * Wc;
+        bereiche.forEach(([a, b]) => { for (let c = cx + a; c <= cx + b; c++) belegt[basis + c] = 1; });
+        let l = -1;
+        for (let c = 0; c < Wc; c++) { if (belegt[basis + c]) l = c; letzte[basis + c] = l; }
+      });
+    }
+
+    // Erste freie Stelle von oben links für eine Drehung
+    function stelleSuchen(tafel, ras, pappe, randMm) {
+      const r = tafel.r;
+      const cMin = Math.ceil(randMm / r - 1e-9);
+      const cxMax = Math.floor((pappe.breite - randMm) / r + 1e-9) - ras.wc;
+      const cyMax = Math.floor((pappe.hoehe - randMm) / r + 1e-9) - ras.hc;
+      for (let cy = cMin; cy <= cyMax; cy++) {
+        let cx = cMin;
+        while (cx <= cxMax) {
+          const sprung = frei(tafel, ras, cx, cy);
+          if (!sprung) return { cx, cy };
+          cx += sprung;
+        }
+      }
+      return null;
+    }
+
+    // Teile einer Pappsorte auf höchstens pappe.anzahl Platten verteilen
+    function packen(kandidaten, pappe, randMm) {
+      const r = Math.max(0.5, Math.max(pappe.breite, pappe.hoehe) / 400);
+      const rand = Math.ceil(randMm / r) + 1;            // Abstand in Kästchen (+1 zur Sicherheit)
+      const tafeln = [], uebrig = [];
+      [...kandidaten].sort((p, q) => q.teil.b * q.teil.h - p.teil.b * p.teil.h).forEach(k => {
+        const varianten = drehungen(k.teil).filter(v => v.b <= pappe.breite - 2 * randMm && v.h <= pappe.hoehe - 2 * randMm);
+        if (!varianten.length) { uebrig.push(k); return; }
+        for (let ti = 0; ti <= tafeln.length; ti++) {
+          if (ti === tafeln.length) {
+            if (tafeln.length >= pappe.anzahl) break;
+            tafeln.push(neueTafel(pappe, r));
+          }
+          const tafel = tafeln[ti];
+          let beste = null;
+          for (const v of varianten) {
+            const ras = rastern(v, r, rand);
+            const stelle = stelleSuchen(tafel, ras, pappe, randMm);
+            if (!stelle) continue;
+            const wert = (stelle.cy + ras.hc) * tafel.Wc + stelle.cx;   // möglichst wenig nach unten, dann links
+            if (!beste || wert < beste.wert) beste = { wert, v, ras, ...stelle };
+          }
+          if (beste) {
+            setzen(tafel, beste.ras, beste.cx, beste.cy);
+            tafel.platziert.push({ teil: beste.v, x: beste.cx * r, y: beste.cy * r, quelle: k });
+            return;
+          }
+        }
+        uebrig.push(k);
+      });
+      return { tafeln: tafeln.filter(t => t.platziert.length), uebrig };
+    }
 
     // Pappsorten aus Kachel 01: Name, Größe, Dicke und wie viele Platten man davon hat
     const pappen = [{ name: 'Graupappe', breite: 600, hoehe: 450, dicke: 2, anzahl: 1 }];
@@ -1238,7 +1417,9 @@
         merk.set(t, teil);
         return teil;
       };
-      const passtAuf = (teil, pappe) => teil.b <= pappe.breite - 2 * ABSTAND && teil.h <= pappe.hoehe - 2 * ABSTAND;
+      const rand = abstandMm();
+      // Passt ein Teil (in irgendeiner Drehung) auf diese Pappe?
+      const passtAuf = (teil, pappe) => drehungen(teil).some(v => v.b <= pappe.breite - 2 * rand && v.h <= pappe.hoehe - 2 * rand);
 
       const ohneFlaeche = [];
       const start = flacheTeile.filter(t => {
@@ -1249,32 +1430,19 @@
 
       // Teile auf eine Liste von Pappsorten verteilen: erst alle Platten der ersten
       // Sorte, was nicht mehr passt, kommt auf die nächste Sorte. Auf jeder Platte
-      // liegen die Teile zeilenweise nebeneinander, die höchsten zuerst.
+      // werden die Teile gedreht und dicht ineinander gelegt (siehe 6a).
       function verteilen(liste) {
         const ergebnis = [], lage = new Map();
         let offen = start, angepasst = 0;
         liste.forEach(pappe => {
           if (!offen.length) return;
           const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
-          const zuGrossHier = kandidaten.filter(k => !passtAuf(k.teil, pappe));
-          let warten = kandidaten.filter(k => passtAuf(k.teil, pappe)).sort((a, b) => b.teil.h - a.teil.h);
-          for (let nr = 1; nr <= pappe.anzahl && warten.length; nr++) {
-            const platziert = [], uebrig = [];
-            let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
-            warten.forEach(k => {
-              const teil = k.teil;
-              if (x + teil.b > pappe.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
-              if (y + teil.h > pappe.hoehe - ABSTAND) { uebrig.push(k); return; }
-              platziert.push({ teil, x, y });
-              lage.set(k.t, teil);
-              angepasst += teil.anzahl;
-              x += teil.b + ABSTAND;
-              zeilenHoehe = Math.max(zeilenHoehe, teil.h);
-            });
-            ergebnis.push({ pappe, nr, platziert });
-            warten = uebrig;
-          }
-          offen = [...zuGrossHier, ...warten].map(k => k.t);
+          const { tafeln, uebrig } = packen(kandidaten, pappe, rand);
+          tafeln.forEach((tafel, i) => {
+            tafel.platziert.forEach(({ quelle }) => { lage.set(quelle.t, quelle.teil); angepasst += quelle.teil.anzahl; });
+            ergebnis.push({ pappe, nr: i + 1, platziert: tafel.platziert });
+          });
+          offen = uebrig.map(k => k.t);
         });
         return { platten: ergebnis, offen, angepasst, lage };
       }
@@ -1531,7 +1699,7 @@ ${pfade}
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
 
-    ['einheit', 'massstab', 'frei', 'kanten'].forEach(id =>
+    ['einheit', 'massstab', 'frei', 'kanten', 'abstand'].forEach(id =>
       document.getElementById(id).addEventListener('input', laserNeuBerechnen)
     );
     // Karte in Kachel 05 angeklickt → versteckte Kanten-Auswahl setzen und neu rechnen
