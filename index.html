@@ -248,6 +248,23 @@
     #punkt.weiss { background: #fff; }
     /* Über Buttons, Feldern und anklickbaren Kacheln wird der Punkt etwas größer */
     #punkt.gross { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+    #punkt { z-index: 3000; }                /* auch über dem Intro sichtbar */
+
+    /* ---------- Intro: orange Seite, Titel wird weiß eingelasert ---------- */
+    #intro {
+      position: fixed; inset: 0; z-index: 2000;
+      background: var(--akzent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #intro svg { width: 96vw; height: auto; overflow: visible; color: #fff; transform-origin: 0 0; }
+    #intro .tipp {
+      position: absolute; left: 0; right: 0; bottom: 24px; margin: 0;
+      text-align: center; font-size: 13px; color: rgba(255, 255, 255, 0.75);
+    }
+    /* Während des Intros ist der echte Titel oben links unsichtbar – der fliegende Titel landet genau dort */
+    body.intro header h1, body.intro header .slogan { visibility: hidden; }
+    header .slogan { animation: einblenden 0.6s ease-out; }
+    @keyframes einblenden { from { opacity: 0; } }
   </style>
 
   <!-- three.js (MIT-Lizenz) in fester Version vom CDN -->
@@ -260,7 +277,7 @@
     }
   </script>
 </head>
-<body>
+<body class="intro">
   <div id="punkt" aria-hidden="true"></div>
   <header>
     <h1>LaserPrep</h1>
@@ -1254,6 +1271,158 @@ ${pfade}
 
     // Für Tests: Modell direkt aus Text laden
     window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile };
+  </script>
+
+  <!-- ---------- Intro-Animation ----------
+       Eigenes kleines Skript (unabhängig von three.js), damit das Intro auch dann
+       verschwindet, wenn die 3D-Bibliothek einmal nicht lädt. -->
+  <script>
+    (function () {
+      const NS = 'http://www.w3.org/2000/svg';
+      const SCHRIFT = '"Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif';
+      // Zeitplan in Millisekunden (zusammen gut 3,5 Sekunden)
+      const T = {
+        titelSchritt: 170, titelZeichnen: 420,     // je Buchstabe von „LaserPrep“
+        untenSchritt: 40, untenZeichnen: 300,      // je Buchstabe von „unfold your ideas“
+        halten: 450, flug: 850
+      };
+
+      function element(name, attribute, eltern) {
+        const e = document.createElementNS(NS, name);
+        for (const [k, w] of Object.entries(attribute)) e.setAttribute(k, w);
+        if (eltern) eltern.appendChild(e);
+        return e;
+      }
+
+      // Eine Zeile als einzelne Buchstaben anlegen (jeder Buchstabe wird einzeln eingelasert)
+      function zeile(svg, text, groesse, gewicht, y) {
+        const gruppe = element('g', {}, svg);
+        const stil = { y, 'font-size': groesse, 'font-weight': gewicht, 'font-family': SCHRIFT };
+        const mess = element('text', { ...stil, x: 0 }, gruppe);
+        mess.textContent = text;
+        const box = mess.getBBox();
+        const breite = mess.getComputedTextLength();
+        const buchstaben = [];
+        [...text].forEach((z, i) => {
+          if (z === ' ') return;
+          const t = element('text', { ...stil, x: mess.getStartPositionOfChar(i).x,
+            fill: 'currentColor', 'fill-opacity': 0, stroke: 'currentColor', 'stroke-width': groesse / 90,
+            'stroke-dasharray': groesse * 5, 'stroke-dashoffset': groesse * 5 }, gruppe);
+          t.textContent = z;
+          buchstaben.push(t);
+        });
+        mess.remove();
+        return { gruppe, box, breite, buchstaben };
+      }
+
+      function starten() {
+        document.getElementById('intro')?.remove();
+        document.body.classList.add('intro');
+        const intro = document.createElement('div');
+        intro.id = 'intro';
+        intro.setAttribute('aria-hidden', 'true');
+        intro.innerHTML = '<p class="tipp">Klicken zum Überspringen</p>';
+        const svg = element('svg', {});
+        intro.prepend(svg);
+        document.body.appendChild(intro);
+
+        const animationen = [];
+        const zeitgeber = [];
+        let fertig = false;
+        const anim = (el, frames, optionen) => { const a = el.animate(frames, { fill: 'forwards', ...optionen }); animationen.push(a); return a; };
+        function ende() {
+          if (fertig) return;
+          fertig = true;
+          zeitgeber.forEach(clearTimeout);
+          animationen.forEach(a => a.cancel());
+          const nochAktuell = document.getElementById('intro') === intro;   // nicht schon durch ein neues Intro ersetzt
+          intro.remove();
+          if (nochAktuell) document.body.classList.remove('intro');
+          removeEventListener('keydown', ende);
+        }
+        intro.addEventListener('click', ende);
+        addEventListener('keydown', ende);
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { ende(); return; }
+
+        // Schrift laden (höchstens 1,5 s warten), dann messen und loslegen
+        const schrift = document.fonts
+          ? Promise.race([document.fonts.load('700 100px "Space Grotesk"'), new Promise(r => setTimeout(r, 1500))])
+          : Promise.resolve();
+        schrift.then(() => {
+          if (fertig) return;
+          // Titel 100 Einheiten groß, Untertitel kleiner und mittig darunter
+          const titel = zeile(svg, 'LaserPrep', 100, 700, 100);
+          const untenY = titel.box.y + titel.box.height + 34;
+          const unten = zeile(svg, 'unfold your ideas', 22, 500, untenY);
+          const dx = titel.box.x + titel.box.width / 2 - (unten.box.x + unten.box.width / 2);
+          unten.gruppe.setAttribute('transform', `translate(${dx} 0)`);
+          const vb = { x: titel.box.x - 2, y: titel.box.y - 8, w: titel.box.width + 4 };
+          vb.h = untenY + 10 - vb.y;
+          svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+
+          // Laserpunkt: heller Kern mit weichem Leuchten
+          const defs = element('defs', {}, svg);
+          const filter = element('filter', { id: 'leuchten', x: '-200%', y: '-200%', width: '500%', height: '500%' }, defs);
+          element('feGaussianBlur', { stdDeviation: 3 }, filter);
+          const laser = element('g', { opacity: 0 }, svg);
+          element('circle', { r: 7, fill: '#fff', opacity: 0.55, filter: 'url(#leuchten)' }, laser);
+          element('circle', { r: 2.2, fill: '#fff' }, laser);
+
+          // Buchstaben nacheinander: Umriss zeichnen, dann weiß füllen.
+          // Der Laserpunkt fährt dabei im Zickzack über den Buchstaben.
+          const wege = [];                         // [Zeit, x, y] für den Laserpunkt
+          const lasern = (z, start, dauer, versatz) => {
+            z.buchstaben.forEach((t, i) => {
+              const beginn = start + i * versatz;
+              const L = Number(t.getAttribute('stroke-dasharray'));
+              anim(t, [{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: dauer, delay: beginn, easing: 'linear' });
+              anim(t, [{ fillOpacity: 0 }, { fillOpacity: 1 }], { duration: 300, delay: beginn + dauer * 0.6 });
+              // Der Punkt bleibt pro Buchstabe nur so lange, bis der nächste anfängt
+              const b = t.getBBox(), d = z === unten ? dx : 0, lauf = versatz * 0.95;
+              [[0, 0, 0.55], [0.3, 0.3, 0], [0.6, 0.65, 1], [1, 1, 0.4]].forEach(([anteil, fx, fy]) =>
+                wege.push([beginn + anteil * lauf, b.x + d + b.width * fx, b.y + b.height * fy]));
+            });
+            return start + (z.buchstaben.length - 1) * versatz + dauer;
+          };
+          const titelEnde = lasern(titel, 0, T.titelZeichnen, T.titelSchritt);
+          // Untertitel beginnt, wenn der Laserpunkt mit dem Titel fertig ist (er kann nicht an zwei Stellen sein)
+          const untenStart = Math.max(titelEnde - 250, wege[wege.length - 1][0] + 60);
+          const untenEnde = lasern(unten, untenStart, T.untenZeichnen, T.untenSchritt);
+          const gesamt = wege[wege.length - 1][0];
+          anim(laser, wege.map(([t, x, y]) => ({ offset: t / gesamt, transform: `translate(${x}px, ${y}px)` })), { duration: gesamt });
+          anim(laser, [{ opacity: 0 }, { opacity: 1, offset: 0.02 }, { opacity: 1, offset: 0.97 }, { opacity: 0 }], { duration: gesamt + 150 });
+
+          // Danach: Titel fliegt nach oben links an die Stelle des echten Titels,
+          // die orange Fläche verschwindet, die normale Ansicht erscheint
+          const flugStart = untenEnde + T.halten;
+          zeitgeber.push(setTimeout(() => {
+            if (fertig) return;
+            const h1 = document.querySelector('header h1');
+            const bereich = document.createRange();
+            bereich.selectNodeContents(h1);
+            const ziel = bereich.getBoundingClientRect();
+            const s = svg.getBoundingClientRect();
+            const px = s.width / vb.w;               // 1 SVG-Einheit in Bildschirm-Pixeln
+            const quelle = {
+              links: s.left + (0 - vb.x) * px, breite: titel.breite * px,
+              mitte: s.top + (titel.box.y + titel.box.height / 2 - vb.y) * px
+            };
+            const f = ziel.width / quelle.breite;
+            const tx = ziel.left - s.left - f * (quelle.links - s.left);
+            const ty = ziel.top + ziel.height / 2 - s.top - f * (quelle.mitte - s.top);
+            const weich = { duration: T.flug, easing: 'cubic-bezier(.65,0,.25,1)' };
+            anim(svg, [{ transform: 'none', color: '#fff' }, { transform: `translate(${tx}px, ${ty}px) scale(${f})`, color: '#111' }], weich);
+            anim(unten.gruppe, [{ opacity: 1 }, { opacity: 0 }], { duration: T.flug * 0.4 });
+            anim(intro, [{ backgroundColor: 'rgba(255,106,0,1)' }, { backgroundColor: 'rgba(255,106,0,0)' }], weich);
+            anim(intro.querySelector('.tipp'), [{ opacity: 1 }, { opacity: 0 }], { duration: 200 });
+            zeitgeber.push(setTimeout(ende, T.flug + 30));
+          }, flugStart));
+        });
+      }
+
+      starten();
+      window.laserprepIntro = starten;          // für Tests: Intro noch einmal abspielen
+    })();
   </script>
 </body>
 </html>

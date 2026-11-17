@@ -161,6 +161,14 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Buttons). Über Buttons, Feldern und anklickbaren Kacheln wird er etwas größer. Die App schaut dafür unter
   dem Punkt nach der Hintergrundfarbe. Auf Touch-Geräten (ohne Maus) bleibt der normale Zeiger.
 
+- 17.11.: **Intro-Animation** beim Öffnen (gut 3,5 s): Die ganze Seite ist orange, ein leuchtender Laserpunkt
+  fährt Buchstabe für Buchstabe die Umrisse von „LaserPrep“ (über die volle Bildschirmbreite) nach, die
+  Buchstaben füllen sich weiß, danach wird „unfold your ideas“ kleiner darunter eingelasert. Dann fliegt der
+  Titel nach oben links genau auf den echten Titel (wird dabei schwarz), das Orange blendet aus und die normale
+  Ansicht erscheint. Läuft bei jedem Öffnen; Klick oder Taste überspringt. Wer im Betriebssystem
+  „Bewegung reduzieren“ eingestellt hat, sieht kein Intro. Eigenes kleines Skript, damit das Intro auch
+  verschwindet, falls three.js nicht lädt.
+
 ## Nächste Schritte
 1. Farben individuell zuordnen (Kachel 04).
 2. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
