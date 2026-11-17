@@ -376,12 +376,14 @@
     #punkt.ring svg { display: block; }
     #punkt svg path {
       fill: none; stroke: var(--akzent); stroke-width: 2;
-      d: path("M12 2 C14.36 2 17.4 3.26 19.07 4.93 C20.74 6.6 22 9.64 22 12 C22 14.36 20.74 17.4 19.07 19.07 C17.4 20.74 14.36 22 12 22 C9.64 22 6.6 20.74 4.93 19.07 C3.26 17.4 2 14.36 2 12 C2 9.64 3.26 6.6 4.93 4.93 C6.6 3.26 9.64 2 12 2 Z");
+      /* Ring: oberer Halbkreis + unterer Halbkreis (die Übergänge dazwischen haben die Länge 0) */
+      d: path("M2 12 A10 10 0 1 1 22 12 C22 12 22 12 22 12 A10 10 0 1 1 2 12 C2 12 2 12 2 12 Z");
       transition: d 0.15s;
     }
-    /* … und solange eine Maustaste gedrückt ist, wird der Ring zu einer „8“, deren Mitte sich nicht berührt */
+    /* … und solange eine Maustaste gedrückt ist, verschmilzt er zu einer „8“ aus zwei runden Kreisen
+       (Mitte 6,5 und 17,5, Radius 5,5); in der Mitte sanft eingeschnürt, die Seiten berühren sich nicht */
     #punkt.ring.gedrueckt svg path {
-      d: path("M12 1 C14.17 1 18 3.67 18.5 5.5 C19 7.33 15 9.83 15 12 C15 14.17 19 16.67 18.5 18.5 C18 20.33 14.17 23 12 23 C9.83 23 6 20.33 5.5 18.5 C5 16.67 9 14.17 9 12 C9 9.83 5 7.33 5.5 5.5 C6 3.67 9.83 1 12 1 Z");
+      d: path("M7.79 10.04 A5.5 5.5 0 1 1 16.21 10.04 C14.6 11.96 14.6 12.04 16.21 13.96 A5.5 5.5 0 1 1 7.79 13.96 C9.4 12.04 9.4 11.96 7.79 10.04 Z");
     }
     #punkt.sichtbar { opacity: 1; }
     #punkt.weiss { background: #fff; }

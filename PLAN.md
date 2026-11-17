@@ -308,6 +308,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   eine kleine Zeichnung (SVG) im Mauszeiger; in Safari springt die Form ohne Übergang um.
   Getestet: Ring über dem Modell, Taste gedrückt → 8, losgelassen → wieder Ring.
 
+- 17.11.: **„8“ aus zwei runden Kreisen.** Die gedrückte Form hatte oben und unten noch Ecken. Jetzt besteht sie aus
+  zwei echten Kreisbögen (oben und unten komplett rund), die in der Mitte über sanfte Bögen ineinander übergehen –
+  wie zwei verschmelzende Kreise; die Seiten berühren sich in der Mitte nicht. Der Übergang vom Ring zur 8 läuft
+  fließend (Ring teilt sich in zwei Kreise). Getestet: Ring, Zwischenstand und 8 vergrößert angesehen.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
