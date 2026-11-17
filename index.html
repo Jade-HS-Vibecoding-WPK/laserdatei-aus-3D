@@ -58,7 +58,8 @@
       grid-template-areas:
         "pappe    datei    modell   modell"
         "massstab farben   modell   modell"
-        "gehrung  bauteile bauteile bauteile"
+        "gehrung  gehrung  gehrung  gehrung"
+        "bauteile bauteile bauteile bauteile"
         "vorschau vorschau vorschau vorschau";
       gap: 16px;
       padding: 24px 48px 48px;
@@ -93,6 +94,33 @@
       color: var(--grau);
       transition: background-color 0.2s, color 0.2s;
     }
+    /* Kanten-Varianten in Kachel 05: Karten mit Skizze (Ecke im Schnitt + Laserteil) */
+    .varianten { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .variante {
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+      background: #fff; color: var(--text); border: 2px solid var(--linie); border-radius: 12px;
+      padding: 12px; cursor: pointer;
+    }
+    .variante input { position: absolute; opacity: 0; pointer-events: none; }
+    .variante:hover { border-color: var(--akzent); }
+    .variante:has(input:checked) { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+    .variante:has(input:checked) .marke::before { content: "✓ gewählt"; }
+    .variante:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+    .variante.gesperrt-variante { cursor: not-allowed; }
+    .variante.gesperrt-variante > * { opacity: 0.45; }   /* Karte bleibt weiß, nur der Inhalt ist blass */
+    .variante.gesperrt-variante:hover { border-color: var(--linie); }
+    .variante-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+    .variante .marke { font-size: 11px; color: var(--grau); white-space: nowrap; }
+    .variante:has(input:checked) .marke { color: var(--text); font-weight: 700; }
+    .variante .text { font-size: 12px; line-height: 1.45; color: var(--grau); }
+    .skizze { width: 100%; height: auto; display: block; }
+    .skizze .schnitt { fill: #e4e4e4; stroke: #888; stroke-width: 1; }
+    .skizze .ueber { fill: var(--akzent); opacity: 0.6; }
+    .skizze .s { fill: none; stroke: var(--f-schneiden, #f00); stroke-width: 1.5; }
+    .skizze .r { stroke: var(--f-anritzen, #00f); stroke-width: 1.5; }
+    .skizze .mass { stroke: #999; stroke-width: 1; stroke-dasharray: 3 2; }
+    .skizze text { font-size: 8px; fill: #999; text-anchor: middle; font-family: inherit; }
+
     .kopf { display: flex; align-items: baseline; gap: 12px; }
     .kopf .nr { font-size: 28px; font-weight: 700; line-height: 1; }
     .kopf h2 { margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
@@ -417,14 +445,65 @@
       <div class="kopf"><span class="nr">05</span><h2>Gehrung</h2></div>
       <p class="zusammenfassung" data-zusammenfassung></p>
       <div class="inhalt">
-        <p class="frage">Wie sollen die Platten an den Ecken zusammenstoßen?</p>
-        <div class="feld">
-          <label for="kanten">Kanten</label>
-          <!-- Später kommen hier „Gehrung von Hand“ und „Auffalten“ als weitere Einträge dazu -->
-          <select id="kanten">
-            <option value="stumpf" selected>stumpf</option>
-            <option value="ausgleichen">Materialstärke ausgleichen</option>
-          </select>
+        <p class="frage">Wie sollen die Platten an den Ecken zusammenstoßen? Links siehst du jeweils die Ecke im Schnitt,
+          rechts das Teil, wie es aus dem Laser kommt.</p>
+        <!-- Die Auswahl selbst steckt in diesem versteckten Feld; die Karten darunter setzen es -->
+        <select id="kanten" hidden>
+          <option value="stumpf" selected>stumpf</option>
+          <option value="ausgleichen">Materialstärke ausgleichen</option>
+          <option value="gehrung">Gehrung von Hand</option>
+          <option value="auffalten">Auffalten</option>
+        </select>
+        <div class="varianten" role="radiogroup" aria-label="Kanten">
+          <label class="variante">
+            <input type="radio" name="kanten-wahl" value="stumpf" checked>
+            <span class="variante-kopf"><strong>Stumpf</strong><span class="marke"></span></span>
+            <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
+              <rect class="schnitt" x="10" y="62" width="70" height="8"/>
+              <rect class="schnitt" x="10" y="12" width="8" height="58"/>
+              <rect class="ueber" x="10" y="62" width="8" height="8"/>
+              <rect class="s" x="110" y="18" width="75" height="52"/>
+              <text x="45" y="86">Ecke</text><text x="147" y="86">Laserteil</text>
+            </svg>
+            <span class="text">Teile genau wie im Modell. Schnell, aber an den Ecken überlappen die Platten um die Pappdicke.</span>
+          </label>
+          <label class="variante">
+            <input type="radio" name="kanten-wahl" value="ausgleichen">
+            <span class="variante-kopf"><strong>Materialstärke ausgleichen</strong><span class="marke"></span></span>
+            <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
+              <rect class="schnitt" x="10" y="62" width="70" height="8"/>
+              <rect class="schnitt" x="10" y="12" width="8" height="50"/>
+              <line class="mass" x1="110" y1="18" x2="185" y2="18"/>
+              <rect class="s" x="110" y="26" width="75" height="44"/>
+              <text x="190" y="25" class="links">−t</text>
+              <text x="45" y="86">Ecke</text><text x="147" y="86">Laserteil</text>
+            </svg>
+            <span class="text">Die kleinere Platte wird um die Pappdicke gekürzt und sitzt auf der größeren – außen bündig.</span>
+          </label>
+          <label class="variante gesperrt-variante">
+            <input type="radio" name="kanten-wahl" value="gehrung" disabled>
+            <span class="variante-kopf"><strong>Gehrung von Hand</strong><span class="marke">kommt bald</span></span>
+            <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
+              <polygon class="schnitt" points="10,70 80,70 80,62 18,62"/>
+              <polygon class="schnitt" points="10,12 18,12 18,62 10,70"/>
+              <rect class="s" x="110" y="18" width="75" height="52"/>
+              <line class="r" x1="110" y1="25" x2="185" y2="25"/>
+              <text x="45" y="86">Ecke</text><text x="147" y="86">Laserteil</text>
+            </svg>
+            <span class="text">Blaue Anritzlinie zeigt, bis wohin du die Kante schräg abschleifst – die Ecke wird sauber 45°.</span>
+          </label>
+          <label class="variante gesperrt-variante">
+            <input type="radio" name="kanten-wahl" value="auffalten" disabled>
+            <span class="variante-kopf"><strong>Auffalten</strong><span class="marke">kommt bald</span></span>
+            <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
+              <path class="schnitt" d="M10 12 H18 V62 H80 V70 H10 Z"/>
+              <line class="r" x1="18" y1="62" x2="13" y2="67"/>
+              <rect class="s" x="104" y="18" width="88" height="52"/>
+              <line class="r" x1="148" y1="18" x2="148" y2="70"/>
+              <text x="45" y="86">Ecke</text><text x="147" y="86">Laserteil</text>
+            </svg>
+            <span class="text">Aneinanderstoßende Flächen bleiben ein Stück; der Knick wird blau angeritzt und gefaltet.</span>
+          </label>
         </div>
         <p class="klein" id="kanten-hilfe"></p>
         <button class="button weiter">Weiter</button>
@@ -1328,6 +1407,9 @@
     function farbname(hex) { return FARBNAMEN[hex.toLowerCase()] || rgb(hex); }
 
     function farbenZeigen() {
+      // Die Skizzen in Kachel 05 zeigen dieselben Farben wie die Laserdatei
+      document.documentElement.style.setProperty('--f-schneiden', farben.schneiden);
+      document.documentElement.style.setProperty('--f-anritzen', farben.anritzen);
       document.querySelectorAll('#farben-liste input').forEach(feld => {
         feld.value = farben[feld.dataset.funktion];
         feld.closest('li').querySelector('.farbname').textContent = farbname(feld.value);
@@ -1404,6 +1486,12 @@ ${pfade}
     ['einheit', 'massstab', 'frei', 'kanten'].forEach(id =>
       document.getElementById(id).addEventListener('input', laserNeuBerechnen)
     );
+    // Karte in Kachel 05 angeklickt → versteckte Kanten-Auswahl setzen und neu rechnen
+    document.querySelector('.varianten').addEventListener('change', ev => {
+      const auswahl = document.getElementById('kanten');
+      auswahl.value = ev.target.value;
+      auswahl.dispatchEvent(new Event('input'));
+    });
     // Alle Platten nacheinander herunterladen (kleine Pause, damit der Browser mitkommt)
     document.getElementById('herunterladen').addEventListener('click', () =>
       platten.forEach((p, i) => setTimeout(() => svgHerunterladen(p), i * 400))

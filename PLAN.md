@@ -186,6 +186,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   gewählten Farben (bisher Schneiden + Rahmen, weil es noch keine Anritz- oder Gravurlinien gibt). Der Browser merkt
   sich die eigenen Farben für das nächste Mal. Mit Standardfarben ist die SVG Zeichen für Zeichen wie vorher.
 
+- 17.11.: **Kachel 05 Gehrung** zeigt jetzt alle vier Kanten-Varianten als Karten mit je zwei kleinen Skizzen:
+  links die Ecke im Schnitt (wie die Platten zusammenstoßen), rechts das Teil, wie es aus dem Laser kommt
+  (Schnitt- und Anritzlinien in den Farben aus Kachel 04). Stumpf und Materialstärke ausgleichen sind wählbar;
+  „Gehrung von Hand“ und „Auffalten“ sind schon zu sehen, aber als „kommt bald“ gesperrt. Kachel 05 geht dafür
+  jetzt über die ganze Breite, die Bauteilliste (06) steht darunter.
+
 ## Nächste Schritte
 1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
 2. Wirklich platzsparend anordnen (statt zeilenweise).
