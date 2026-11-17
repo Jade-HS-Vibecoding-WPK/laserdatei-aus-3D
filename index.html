@@ -283,6 +283,13 @@
       background: #fff; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);   /* kein farbiger Rand, nur ein leichter Schatten */
       pointer-events: none; z-index: 50; display: none; }
     #lupe.sichtbar { display: block; }
+    /* Maßband (nur Vorschau): gemessene Kante / Strecke in Orange, Maß mit weißem Rand gut lesbar */
+    .mass-ebene { pointer-events: none; }
+    .mass-ebene line { stroke: var(--akzent); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+    .mass-ebene line.offen { stroke-dasharray: 4 3; }
+    .mass-ebene .mass-punkt { fill: var(--akzent); }
+    .mass-ebene .mass-text { fill: var(--text); font-family: inherit; font-weight: 700; text-anchor: middle;
+      paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
     /* Schiebeschalter „Lupe“: runder Knopf springt von links (aus) nach rechts (an) */
     .schalter { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0;
       font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
@@ -746,6 +753,8 @@
           </label>
           <button class="schalter" id="lupe-schalter" role="switch" aria-checked="false" hidden
             title="Lupe über den Platten ein- oder ausschalten"><span class="spur"><span class="knopf"></span></span>Lupe</button>
+          <button class="schalter" id="mass-schalter" role="switch" aria-checked="false" hidden
+            title="Maßband: Maus auf eine Kante zeigt ihre Länge; zwei Klicks messen eine Strecke (Esc löscht)"><span class="spur"><span class="knopf"></span></span>Maßband</button>
           <p id="meldung"></p>
           <button class="button" id="herunterladen">SVG herunterladen</button>
         </div>
@@ -2337,6 +2346,7 @@
         karte.querySelector('.info').textContent =
           `${p.pappe.breite} × ${p.pappe.hoehe} mm · ${runde(p.pappe.dicke)} mm · ${p.platziert.length} Teile`;
         karte.querySelector('.bild').innerHTML = p.svg.replace(/^<\?xml[^>]*>\s*/, '');
+        karte.querySelector('.bild svg').dataset.platte = platten.indexOf(p);   // fürs Maßband: welche Platte?
         karte.querySelector('button').addEventListener('click', () => svgHerunterladen(p));
         ort.appendChild(karte);
         teileBeschriften(karte.querySelector('.bild svg'), p);
@@ -2591,13 +2601,119 @@
         lupe.style.transform = `translate(${maus.clientX - radius}px, ${maus.clientY - radius}px)`;
         lupe.classList.add('sichtbar');
       };
-      const platten = document.getElementById('platten');
-      platten.addEventListener('mousemove', ev => {
+      const plattenFeld = document.getElementById('platten');
+      plattenFeld.addEventListener('mousemove', ev => {
         maus = ev;
         if (!geplant) { geplant = true; requestAnimationFrame(lupeZeichnen); }   // höchstens einmal pro Bild
       });
-      platten.addEventListener('mouseleave', () => { maus = null; lupe.classList.remove('sichtbar'); });
+      plattenFeld.addEventListener('mouseleave', () => { maus = null; lupe.classList.remove('sichtbar'); });
       addEventListener('scroll', () => lupe.classList.remove('sichtbar'), { passive: true });
+
+      // ---------- 6f. Maßband über der Vorschau ----------
+      // Schalter „Maßband“: Maus auf einer Umrisskante zeigt ihre Länge. Ein Klick setzt den Anfang einer
+      // Messung, ein zweiter Klick das Ende (Ecken rasten ein). Angezeigt wird die Länge auf der Pappe und – mit
+      // dem Maßstab umgerechnet – im echten Gebäude. Die Messung liegt nur in der Vorschau, nicht in der Laserdatei.
+      const massSchalter = document.getElementById('mass-schalter');
+      let massAn = false, massStart = null, messung = null, massHover = null;
+      massSchalter.hidden = false;
+      massSchalter.addEventListener('click', () => {
+        massAn = !massAn;
+        massSchalter.setAttribute('aria-checked', String(massAn));
+        massStart = messung = massHover = null;
+        massZeichnen();
+      });
+      const mm = z => `${String(Math.round(z * 10) / 10).replace('.', ',')} mm`;
+      const echt = z => {                      // Länge im Gebäude (Pappe-mm × Maßstab)
+        const w = z * einstellungen().massstab;
+        return w >= 1000 ? `${(w / 1000).toFixed(2).replace('.', ',')} m` : `${(w / 10).toFixed(1).replace('.', ',')} cm`;
+      };
+      const zuSvg = (svg, ev) => {             // Mausposition → mm auf der Platte
+        const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY;
+        return p.matrixTransform(svg.getScreenCTM().inverse());
+      };
+      // Alle Umrisskanten einer Platte in Platten-mm (wie in der SVG-Datei)
+      const kantenVon = svg => {
+        const platte = platten[Number(svg.dataset.platte)];
+        if (!platte) return [];
+        const k = [];
+        platte.platziert.forEach(({ teil, x, y }) => teil.zuege.forEach(z => {
+          const q = z.map(([px, py]) => [x + px - teil.minX, y + teil.maxY - py]);
+          q.forEach((a, i) => k.push([a, q[(i + 1) % q.length]]));
+        }));
+        return k;
+      };
+      const naechsteKante = (svg, pt, weite) => {
+        let beste = null;
+        for (const [a, b] of kantenVon(svg)) {
+          const dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy;
+          const t = l ? Math.max(0, Math.min(1, ((pt.x - a[0]) * dx + (pt.y - a[1]) * dy) / l)) : 0;
+          const d = Math.hypot(pt.x - a[0] - t * dx, pt.y - a[1] - t * dy);
+          if (d <= weite && (!beste || d < beste.d)) beste = { d, a, b, p: [a[0] + t * dx, a[1] + t * dy] };
+        }
+        return beste;
+      };
+      const einrasten = (svg, pt, weite) => {   // Ecke in der Nähe? Sonst Punkt auf einer Kante, sonst frei
+        let ecke = null;
+        for (const [a] of kantenVon(svg)) {
+          const d = Math.hypot(pt.x - a[0], pt.y - a[1]);
+          if (d <= weite * 1.5 && (!ecke || d < ecke.d)) ecke = { d, p: a };
+        }
+        if (ecke) return ecke.p;
+        const k = naechsteKante(svg, pt, weite);
+        return k ? k.p : [pt.x, pt.y];
+      };
+      const NS = 'http://www.w3.org/2000/svg';
+      const neu = (eltern, name, werte) => { const e = document.createElementNS(NS, name); for (const k in werte) e.setAttribute(k, werte[k]); eltern.appendChild(e); return e; };
+      const beschriften = (ebene, a, b, s, text) => {
+        const t = neu(ebene, 'text', { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 - 8 / s, 'font-size': 12 / s, class: 'mass-text' });
+        t.textContent = text;
+      };
+      function massZeichnen() {
+        document.querySelectorAll('.platte .mass-ebene').forEach(e => e.remove());
+        if (!massAn) return;
+        const ziele = new Set([massHover?.svg, massStart?.svg, messung?.svg].filter(s => s && s.isConnected));
+        ziele.forEach(svg => {
+          const s = svg.getScreenCTM()?.a || 1;           // Bildschirm-Pixel pro mm
+          const ebene = neu(svg, 'g', { class: 'mass-ebene' });
+          if (massHover?.svg === svg) {
+            const { a, b } = massHover.kante;
+            neu(ebene, 'line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'mass-kante' });
+            beschriften(ebene, a, b, s, `${mm(Math.hypot(b[0] - a[0], b[1] - a[1]))} · im Gebäude ${echt(Math.hypot(b[0] - a[0], b[1] - a[1]))}`);
+          }
+          if (massStart?.svg === svg) {
+            neu(ebene, 'circle', { cx: massStart.p[0], cy: massStart.p[1], r: 4 / s, class: 'mass-punkt' });
+            if (massStart.bis) neu(ebene, 'line', { x1: massStart.p[0], y1: massStart.p[1], x2: massStart.bis[0], y2: massStart.bis[1], class: 'mass-linie offen' });
+          }
+          if (messung?.svg === svg) {
+            const { a, b } = messung;
+            neu(ebene, 'line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'mass-linie' });
+            [a, b].forEach(p => neu(ebene, 'circle', { cx: p[0], cy: p[1], r: 3.5 / s, class: 'mass-punkt' }));
+            const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            beschriften(ebene, a, b, s, `${mm(l)} · im Gebäude ${echt(l)}`);
+          }
+        });
+      }
+      plattenFeld.addEventListener('mousemove', ev => {
+        if (!massAn) return;
+        const svg = ev.target.closest?.('.platte .bild svg');
+        if (!svg) { if (massHover) { massHover = null; massZeichnen(); } return; }
+        const s = svg.getScreenCTM().a, pt = zuSvg(svg, ev);
+        const kante = naechsteKante(svg, pt, 6 / s);    // höchstens 6 Bildschirm-Pixel daneben
+        massHover = kante ? { svg, kante } : null;
+        if (massStart && massStart.svg === svg) massStart.bis = einrasten(svg, pt, 6 / s);
+        massZeichnen();
+      });
+      plattenFeld.addEventListener('click', ev => {
+        if (!massAn) return;
+        const svg = ev.target.closest?.('.platte .bild svg');
+        if (!svg) return;
+        const s = svg.getScreenCTM().a, p = einrasten(svg, zuSvg(svg, ev), 6 / s);
+        if (!massStart || massStart.svg !== svg) { massStart = { svg, p }; messung = null; }
+        else { messung = { svg, a: massStart.p, b: p }; massStart = null; }
+        massZeichnen();
+      });
+      plattenFeld.addEventListener('mouseleave', () => { if (massHover) { massHover = null; massZeichnen(); } });
+      addEventListener('keydown', ev => { if (ev.key === 'Escape' && massAn) { massStart = messung = null; massZeichnen(); } });
     }
 
     // ---------- 6b. Laser-Farben (Kachel 04: Funktion ↔ Farbe) ----------

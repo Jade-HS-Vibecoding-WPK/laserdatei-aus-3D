@@ -356,6 +356,14 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet: nach dem Intro 6 → 13 → 17 → 18 von 18 Punkten in 0,05 / 0,2 / 0,4 / 0,7 s; Maus bei x = 120 px schiebt
   den Nachbarpunkt links um 27,5 px nach links, rechts um 26 px nach rechts, danach wieder genau in Ruhelage.
 
+- 17.11.: **Maßband in der Vorschau.** Neben „Lupe“ gibt es den Schalter **„Maßband“**. Ist er an, zeigt die Maus auf
+  einer Umrisskante (bis 6 Bildschirm-Pixel daneben) diese Kante orange mit ihrer Länge, z. B. „120 mm · im Gebäude
+  6,00 m“ (Pappe-Maß × Maßstab). Ein Klick setzt den Anfang einer Messung (gestrichelte Linie folgt der Maus), ein
+  zweiter Klick das Ende; Ecken und Kanten in der Nähe rasten ein. Esc oder Ausschalten löscht die Messung.
+  Die Maße stehen nur in der Vorschau (auch in der Lupe zu sehen), nicht in der Laserdatei.
+  Getestet mit dem OBJ-Testhaus (1:50): Bodenkanten 120 mm / 6,00 m und 80 mm / 4,00 m, Diagonale über zwei
+  eingerastete Ecken 144,2 mm / 7,21 m.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
