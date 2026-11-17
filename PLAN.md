@@ -31,6 +31,10 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
 
 ### Should (wäre gut)
+- [x] Aufbau als Bento-Grid: 7 Schritte nacheinander abfragen (01 Pappe, 02 Datei, 03 Maßstab, 04 Farben, 05 Gehrung, 06 Bauteile, 07 Vorschau)
+- [ ] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
+- [ ] Farben individuell zuordnen (Funktion ↔ Farbe)
+- [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
@@ -122,9 +126,22 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   „stumpf“ liefert Zeichen für Zeichen dieselbe SVG wie vorher. In der Meldung steht, wie viele Stoßkanten angepasst wurden.
   Noch offen: Bei schrägen Stößen (Grate, First) bleibt außen eine kleine Kerbe – das löst später „Gehrung von Hand“.
 
+- 17.11.: Fünftes Feature fertig: **neuer Aufbau als Bento-Grid**. Alle Kacheln sind von Anfang an sichtbar und
+  werden der Reihe nach abgefragt: 01 Pappe (Größe + Dicke) → 02 Datei (OBJ/IFC, daneben große 3D-Kachel) →
+  03 Maßstab (+ Einheit) → 04 Farben (zeigt die Laser-Farben) → 05 Gehrung (Kanten: stumpf / Materialstärke
+  ausgleichen) → 06 Bauteile (Liste mit Maßen) → 07 Vorschau (große Kachel mit Platte, Meldung und „SVG herunterladen“).
+  Die aktive Kachel hat einen orangen Rahmen und einen „Weiter“-Button, erledigte zeigen eine kurze
+  Zusammenfassung und lassen sich zum Ändern anklicken, spätere sind grau. Nach dem Laden einer Datei geht es
+  automatisch mit dem Maßstab weiter. Die Pappdicke steht jetzt bei 01 Pappe (früher bei „Kanten“).
+  Im schmalen Fenster stehen alle Kacheln untereinander. Rechnung und SVG sind unverändert.
+  Entscheidungen für die nächsten Schritte: mehrere Pappsorten (Name, Größe, Dicke, Anzahl);
+  Gruppen automatisch vorsortiert und änderbar.
+
 ## Nächste Schritte
-1. Doppelte Linien entfernen (z. B. wenn Teile direkt aneinander liegen).
-2. Platzsparendes Anordnen und mehrere Platten.
-3. DXF-Export.
-4. Echtes Archicad-Modell testen (OBJ und IFC).
-5. Kanten: „Gehrung von Hand“, danach „Auffalten“.
+1. Mehrere Pappsorten mit Anzahl und mehrere Platten (Kachel 01, Vorschau mit mehreren Platten, platzsparend anordnen).
+2. Farben individuell zuordnen (Kachel 04).
+3. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
+4. Doppelte Linien entfernen.
+5. DXF-Export.
+6. Echtes Archicad-Modell testen (OBJ und IFC).
+7. Kanten: „Gehrung von Hand“, danach „Auffalten“ (Kachel 05).

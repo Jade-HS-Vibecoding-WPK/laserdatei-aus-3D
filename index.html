@@ -12,15 +12,14 @@
       --grau: #777;
       --linie: #ddd;
       --hintergrund: #fff;
+      --flaeche: #f2f2f2;     /* Hintergrund zwischen den Kacheln */
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; }
     body {
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
       color: var(--text);
-      background: var(--hintergrund);
-      display: grid;
-      grid-template-rows: auto 1fr;
+      background: var(--flaeche);
     }
     header {
       display: flex;
@@ -28,10 +27,10 @@
       gap: 24px;
       padding: 32px 48px 24px;
       border-bottom: 1px solid var(--text);
+      background: var(--hintergrund);
     }
     header h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
     header .slogan { color: var(--grau); font-size: 16px; }
-    header .platz { flex: 1; }
 
     .button {
       background: var(--akzent);
@@ -43,50 +42,86 @@
       cursor: pointer;
     }
     .button:hover { background: #e55f00; }
-    /* Zweitbutton: sobald ein Modell geladen ist, ist „SVG herunterladen“ der Hauptbutton */
-    .button.zweit { background: #fff; color: var(--akzent); box-shadow: inset 0 0 0 2px var(--akzent); }
-    .button.zweit:hover { background: rgba(255, 106, 0, 0.06); }
+    .button:disabled { background: var(--linie); color: var(--grau); cursor: default; }
 
-    main {
+    /* ---------- Bento-Grid: ein Kachelraster, die Schritte von oben links nach unten ---------- */
+    .bento {
       display: grid;
-      grid-template-columns: 1fr 300px;
-      min-height: 0;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        "pappe    datei    modell   modell"
+        "massstab farben   modell   modell"
+        "gehrung  bauteile bauteile bauteile"
+        "vorschau vorschau vorschau vorschau";
+      gap: 16px;
+      padding: 24px 48px 48px;
+      max-width: 1600px;
+      margin: 0 auto;
     }
-    /* Links: oben 3D-Modell, unten die flach gelegten Teile auf der Platte */
-    .links { display: grid; grid-template-rows: 1fr; min-height: 0; }
-    body.geladen .links { grid-template-rows: 1fr 1fr; }
-    #ansicht { position: relative; min-height: 0; overflow: hidden; }
-    #platte-bereich {
-      display: none;
-      border-top: 1px solid var(--text);
-      padding: 16px 24px 24px;
-      min-height: 0;
-      grid-template-rows: auto 1fr;
-      gap: 8px;
+    #k-pappe { grid-area: pappe; }
+    #k-datei { grid-area: datei; }
+    #k-modell { grid-area: modell; }
+    #k-massstab { grid-area: massstab; }
+    #k-farben { grid-area: farben; }
+    #k-gehrung { grid-area: gehrung; }
+    #k-bauteile { grid-area: bauteile; }
+    #k-vorschau { grid-area: vorschau; }
+    /* Schmales Fenster: alle Kacheln untereinander, in Schritt-Reihenfolge */
+    @media (max-width: 900px) {
+      .bento {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "pappe" "datei" "modell" "massstab" "farben" "gehrung" "bauteile" "vorschau";
+        padding: 16px;
+      }
+      header { padding: 24px 16px 16px; }
     }
-    body.geladen #platte-bereich { display: grid; }
-    #platte-titel { font-size: 14px; color: var(--grau); }
-    #platte-titel strong { color: var(--text); text-transform: uppercase; letter-spacing: 1px; margin-right: 12px; }
-    #platte { min-height: 0; }
-    #platte svg { width: 100%; height: 100%; display: block; }
-    /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
-    #platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-    #platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
-    #ansicht canvas { display: block; }
 
-    /* Hinweis in der Mitte, solange noch kein Modell geladen ist */
+    .kachel {
+      background: var(--hintergrund);
+      border: 1px solid var(--linie);
+      padding: 20px;
+      min-width: 0;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .kopf { display: flex; align-items: baseline; gap: 12px; }
+    .kopf .nr { font-size: 28px; font-weight: 700; color: var(--grau); line-height: 1; }
+    .kopf h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    .frage { margin: 0; font-size: 14px; color: var(--grau); line-height: 1.5; }
+    .zusammenfassung { display: none; margin: 0; font-size: 14px; color: var(--grau); }
+    .kachel .weiter { align-self: flex-start; }
+
+    /* Zustände eines Schritts */
+    .kachel.aktiv { border: 2px solid var(--akzent); padding: 19px; }
+    .kachel.aktiv .nr { color: var(--akzent); }
+    .kachel.erledigt { cursor: pointer; }
+    .kachel.erledigt:hover { border-color: var(--akzent); }
+    .kachel.erledigt .inhalt { display: none; }
+    .kachel.erledigt .zusammenfassung { display: block; }
+    .kachel.erledigt .zusammenfassung::after { content: "  ändern"; color: var(--akzent); }
+    .kachel.gesperrt { opacity: 0.4; }
+    .kachel.gesperrt .inhalt { display: none; }
+    .inhalt { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+    /* 3D-Modell */
+    #k-modell { padding: 0; min-height: 420px; position: relative; }
+    #ansicht { position: absolute; inset: 0; overflow: hidden; }
+    #ansicht canvas { display: block; }
     #hinweis {
-      position: absolute; inset: 48px;
+      position: absolute; inset: 24px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       border: 2px dashed var(--linie);
       color: var(--grau);
       text-align: center;
       pointer-events: none;
     }
-    #hinweis strong { color: var(--text); font-size: 24px; margin-bottom: 8px; }
+    #hinweis strong { color: var(--text); font-size: 20px; margin-bottom: 8px; }
+    .steuerung {
+      position: absolute; left: 16px; bottom: 12px; margin: 0;
+      color: var(--grau); font-size: 12px; line-height: 1.6; pointer-events: none;
+    }
 
     /* Rahmen, der beim Darüberziehen einer Datei erscheint */
-    body.ziehen #ansicht::after {
+    body.ziehen #k-modell::after {
       content: "Loslassen zum Laden";
       position: absolute; inset: 16px;
       display: flex; align-items: center; justify-content: center;
@@ -95,14 +130,9 @@
       color: var(--akzent); font-size: 24px; font-weight: 700;
     }
 
-    aside {
-      border-left: 1px solid var(--text);
-      padding: 24px;
-      overflow-y: auto;
-    }
-    aside h2 { margin: 0 0 4px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-    #dateiname { color: var(--grau); font-size: 14px; margin: 0 0 24px; word-break: break-all; }
-    #teile { list-style: none; margin: 0; padding: 0; counter-reset: teil; }
+    /* Bauteilliste */
+    #dateiname { color: var(--grau); font-size: 14px; margin: 0; word-break: break-all; }
+    #teile { list-style: none; margin: 0; padding: 0; counter-reset: teil; columns: 2 260px; column-gap: 32px; }
     /* Nummer | Name | Maß in einer Zeile; lange Namen werden mit „…“ gekürzt (ganzer Name beim Darüberfahren) */
     #teile li {
       counter-increment: teil;
@@ -110,6 +140,7 @@
       padding: 8px 0;
       border-bottom: 1px solid var(--linie);
       cursor: default;
+      break-inside: avoid;
     }
     #teile li::before {
       content: counter(teil, decimal-leading-zero);
@@ -118,12 +149,11 @@
     #teile li:hover { color: var(--akzent); }
     #teile li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #teile li .mass { flex: none; white-space: nowrap; color: var(--grau); font-size: 12px; }
-    #fehler { color: #c00; font-size: 14px; }
+    #fehler { color: #c00; font-size: 14px; margin: 0; }
+    #fehler:empty { display: none; }
 
-    /* Einstellungen für die Laserdatei */
-    #laser { display: none; margin-top: 32px; }
-    body.geladen #laser { display: block; }
-    .feld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; margin: 12px 0; font-size: 14px; }
+    /* Eingabefelder */
+    .feld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; font-size: 14px; }
     .feld[hidden] { display: none; }
     .feld label { color: var(--grau); }
     .feld .reihe { display: flex; align-items: center; gap: 6px; }
@@ -132,10 +162,26 @@
       border: 1px solid var(--linie); background: #fff; width: 100%; min-width: 0;
     }
     select:focus, input:focus { outline: 2px solid var(--akzent); outline-offset: -1px; }
-    #meldung { font-size: 13px; line-height: 1.5; color: #c00; margin: 12px 0; }
+
+    /* Farben (Laser-Konvention) */
+    .farben { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+    .farben li { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+    .farben .muster { width: 28px; height: 0; border-top: 3px solid; }
+    .farben .muster.flaeche { height: 12px; border: 0; }
+    .klein { font-size: 12px; color: var(--grau); margin: 0; line-height: 1.5; }
+
+    /* Vorschau der Laserplatte */
+    #k-vorschau .inhalt { flex: 1; }
+    #platte-info { font-size: 14px; color: var(--grau); }
+    .gesperrt #platte-info { display: none; }
+    #platte { height: 60vh; min-height: 320px; }
+    #platte svg { width: 100%; height: 100%; display: block; }
+    /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
+    #platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+    #platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
-    #herunterladen { width: 100%; margin-top: 8px; }
-    .steuerung { color: var(--grau); font-size: 12px; margin-top: 24px; line-height: 1.6; }
   </style>
 
   <!-- three.js (MIT-Lizenz) in fester Version vom CDN -->
@@ -152,39 +198,60 @@
   <header>
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
-    <span class="platz"></span>
-    <button class="button" id="waehlen">OBJ- oder IFC-Datei wählen</button>
-    <input type="file" id="datei" accept=".obj,.ifc" hidden>
   </header>
 
-  <main>
-    <div class="links">
+  <main class="bento">
+    <!-- 01 Pappe -->
+    <section class="kachel" id="k-pappe" data-schritt="0">
+      <div class="kopf"><span class="nr">01</span><h2>Pappe</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">Wie groß ist deine Pappe und wie dick?</p>
+        <div class="feld">
+          <label for="breite">Größe (mm)</label>
+          <div class="reihe">
+            <input type="number" id="breite" value="600" min="10" step="1" aria-label="Breite in mm">
+            <span>×</span>
+            <input type="number" id="hoehe" value="450" min="10" step="1" aria-label="Höhe in mm">
+          </div>
+        </div>
+        <div class="feld" id="dicke-feld">
+          <label for="dicke">Dicke (mm)</label>
+          <input type="number" id="dicke" value="2" min="0.1" step="0.1">
+        </div>
+        <button class="button weiter">Weiter</button>
+      </div>
+    </section>
+
+    <!-- 02 Datei -->
+    <section class="kachel" id="k-datei" data-schritt="1">
+      <div class="kopf"><span class="nr">02</span><h2>Datei</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">Lade dein Modell als OBJ oder IFC (z. B. aus Archicad). Du kannst die Datei auch auf die Seite ziehen.</p>
+        <button class="button" id="waehlen">OBJ- oder IFC-Datei wählen</button>
+        <input type="file" id="datei" accept=".obj,.ifc" hidden>
+        <p id="fehler"></p>
+      </div>
+    </section>
+
+    <!-- 3D-Modell (gehört zu Schritt 02) -->
+    <section class="kachel" id="k-modell">
       <div id="ansicht">
         <div id="hinweis">
-          <strong>OBJ- oder IFC-Datei hierher ziehen</strong>
-          oder oben auf „OBJ- oder IFC-Datei wählen“ klicken
+          <strong>Hier erscheint dein Modell</strong>
+          OBJ- oder IFC-Datei hierher ziehen
         </div>
       </div>
-      <div id="platte-bereich">
-        <div id="platte-titel"><strong>Laserplatte</strong><span id="platte-info"></span></div>
-        <div id="platte"></div>
-      </div>
-    </div>
-    <aside>
-      <h2>Bauteile</h2>
-      <p id="dateiname">Noch kein Modell geladen</p>
-      <ul id="teile"></ul>
-      <p id="fehler"></p>
+      <p class="steuerung">Linke Maustaste: drehen · Rechte Maustaste: verschieben · Mausrad: zoomen</p>
+    </section>
 
-      <section id="laser">
-        <h2>Laserdatei</h2>
-        <div class="feld">
-          <label for="einheit">Einheit im CAD</label>
-          <select id="einheit">
-            <option value="1" selected>mm</option>
-            <option value="1000">m</option>
-          </select>
-        </div>
+    <!-- 03 Maßstab -->
+    <section class="kachel" id="k-massstab" data-schritt="2">
+      <div class="kopf"><span class="nr">03</span><h2>Maßstab</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">In welchem Maßstab soll das Modell gebaut werden?</p>
         <div class="feld">
           <label for="massstab">Maßstab</label>
           <div class="reihe">
@@ -199,13 +266,39 @@
           </div>
         </div>
         <div class="feld">
-          <label for="breite">Platte (mm)</label>
-          <div class="reihe">
-            <input type="number" id="breite" value="600" min="10" step="1" aria-label="Breite in mm">
-            <span>×</span>
-            <input type="number" id="hoehe" value="450" min="10" step="1" aria-label="Höhe in mm">
-          </div>
+          <label for="einheit">Einheit im CAD</label>
+          <select id="einheit">
+            <option value="1" selected>mm</option>
+            <option value="1000">m</option>
+          </select>
         </div>
+        <button class="button weiter">Weiter</button>
+      </div>
+    </section>
+
+    <!-- 04 Farben -->
+    <section class="kachel" id="k-farben" data-schritt="3">
+      <div class="kopf"><span class="nr">04</span><h2>Farben</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">So liest der Laser die Farben:</p>
+        <ul class="farben">
+          <li><span class="muster" style="color: rgb(255,0,0)"></span>Rot · Schneiden</li>
+          <li><span class="muster" style="color: rgb(0,0,255)"></span>Blau · Anritzen</li>
+          <li><span class="muster" style="color: rgb(255,220,0)"></span>Gelb · Orientierung</li>
+          <li><span class="muster flaeche" style="background: #000"></span>Schwarz · Gravur</li>
+        </ul>
+        <p class="klein">Eigene Zuordnung (z. B. für einen anderen Laser) kommt im nächsten Schritt.</p>
+        <button class="button weiter">Weiter</button>
+      </div>
+    </section>
+
+    <!-- 05 Gehrung / Kanten -->
+    <section class="kachel" id="k-gehrung" data-schritt="4">
+      <div class="kopf"><span class="nr">05</span><h2>Gehrung</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">Wie sollen die Platten an den Ecken zusammenstoßen?</p>
         <div class="feld">
           <label for="kanten">Kanten</label>
           <!-- Später kommen hier „Gehrung von Hand“ und „Auffalten“ als weitere Einträge dazu -->
@@ -214,19 +307,34 @@
             <option value="ausgleichen">Materialstärke ausgleichen</option>
           </select>
         </div>
-        <div class="feld" id="dicke-feld" hidden>
-          <label for="dicke">Material&shy;stärke (mm)</label>
-          <input type="number" id="dicke" value="2" min="0.1" step="0.1">
+        <p class="klein" id="kanten-hilfe"></p>
+        <button class="button weiter">Weiter</button>
+      </div>
+    </section>
+
+    <!-- 06 Bauteile -->
+    <section class="kachel" id="k-bauteile" data-schritt="5">
+      <div class="kopf"><span class="nr">06</span><h2>Bauteile</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p id="dateiname">Noch kein Modell geladen</p>
+        <ul id="teile"></ul>
+        <p class="klein">Gruppen (Außenwände, Innenwände, Decke, Dach) und die Pappe je Gruppe kommen im nächsten Schritt.</p>
+        <button class="button weiter">Weiter zur Vorschau</button>
+      </div>
+    </section>
+
+    <!-- 07 Vorschau -->
+    <section class="kachel" id="k-vorschau" data-schritt="6">
+      <div class="kopf"><span class="nr">07</span><h2>Vorschau</h2><span id="platte-info"></span></div>
+      <div class="inhalt">
+        <div id="platte"></div>
+        <div class="fuss">
+          <p id="meldung"></p>
+          <button class="button" id="herunterladen">SVG herunterladen</button>
         </div>
-        <p id="meldung"></p>
-        <button class="button" id="herunterladen">SVG herunterladen</button>
-      </section>
-      <p class="steuerung">
-        Linke Maustaste: drehen<br>
-        Rechte Maustaste: verschieben<br>
-        Mausrad: zoomen
-      </p>
-    </aside>
+      </div>
+    </section>
   </main>
 
   <script type="module">
@@ -442,10 +550,72 @@
       stoesseFinden(bauteile, flacheTeile);
 
       dateiBasis = dateiname.replace(/\.(obj|ifc)$/i, '');
-      document.body.classList.add('geladen');
-      document.getElementById('waehlen').classList.add('zweit');
+      modellGeladen = { name: dateiname, anzahl: bauteile.length };
       laserNeuBerechnen();
+      // Modell da → Schritt 02 ist erledigt, weiter mit Schritt 03 (Maßstab)
+      if (erreicht <= 1) { erreicht = 2; offen = 2; }
+      else if (offen === 1) offen = -1;
+      schritteZeigen();
     }
+
+    // ---------- 3d. Die Schritte im Bento-Grid ----------
+    // Jede Kachel ist ein Schritt. Am Anfang wird ein Schritt nach dem anderen abgefragt:
+    // „aktiv“ = gerade offen (orange Rahmen), „erledigt“ = kurze Zusammenfassung,
+    // zum Ändern anklicken, „gesperrt“ = kommt erst noch (grau).
+    const SCHRITTE = [...document.querySelectorAll('[data-schritt]')];
+    const VORSCHAU = SCHRITTE.length - 1;
+    let erreicht = 0;          // bis zu diesem Schritt ist alles freigeschaltet
+    let offen = 0;             // dieser Schritt ist gerade aufgeklappt (-1 = keiner)
+    let modellGeladen = null;
+
+    function schritteZeigen() {
+      SCHRITTE.forEach((kachel, i) => {
+        kachel.classList.toggle('gesperrt', i > erreicht);
+        kachel.classList.toggle('aktiv', i === offen || (i === VORSCHAU && offen === -1 && erreicht === VORSCHAU));
+        kachel.classList.toggle('erledigt', i <= erreicht && i !== offen && i !== VORSCHAU);
+      });
+      zusammenfassen();
+    }
+
+    function zusammenfassen() {
+      const e = einstellungen();
+      const kanten = document.getElementById('kanten');
+      const texte = [
+        `${e.breite} × ${e.hoehe} mm · ${runde(e.dicke)} mm dick`,
+        modellGeladen ? `${modellGeladen.name} · ${modellGeladen.anzahl} Bauteile` : 'Noch kein Modell',
+        `1:${e.massstab} · CAD in ${e.einheitMm === 1 ? 'mm' : 'm'}`,
+        'Standardfarben',
+        kanten.options[kanten.selectedIndex].text,
+        modellGeladen ? `${modellGeladen.anzahl} Bauteile` : '–'
+      ];
+      SCHRITTE.forEach((kachel, i) => {
+        const feld = kachel.querySelector('[data-zusammenfassung]');
+        if (feld) feld.textContent = texte[i];
+      });
+      document.getElementById('kanten-hilfe').textContent = e.kanten === 'ausgleichen'
+        ? `Die größere Platte läuft durch, die kleinere wird um die Pappdicke (${runde(e.dicke)} mm) gekürzt – außen ist alles bündig.`
+        : 'Die Teile werden so ausgeschnitten, wie sie im Modell flach liegen.';
+    }
+
+    function weiter(i) {
+      if (i === erreicht) {                // neuer Schritt → den nächsten öffnen
+        erreicht = i + 1;
+        offen = erreicht < VORSCHAU ? erreicht : -1;
+      } else {
+        offen = -1;                        // nur etwas geändert → wieder zuklappen
+      }
+      schritteZeigen();
+      const naechste = SCHRITTE[offen >= 0 ? offen : VORSCHAU];
+      if (naechste.getBoundingClientRect().top > innerHeight - 120) naechste.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    SCHRITTE.forEach((kachel, i) => {
+      kachel.querySelector('.weiter')?.addEventListener('click', ev => { ev.stopPropagation(); weiter(i); });
+      // Erledigte Kachel anklicken → wieder aufklappen und ändern
+      kachel.addEventListener('click', () => {
+        if (kachel.classList.contains('erledigt')) { offen = i; schritteZeigen(); }
+      });
+    });
 
     // ---------- 5. Ein Bauteil flach legen ----------
     // Idee: Das Bauteil ist eine Platte. Wir suchen ihre größte ebene Fläche
@@ -743,7 +913,6 @@
       document.getElementById('frei').hidden = !frei;
       document.getElementById('frei-feld').hidden = !frei;
       const kanten = document.getElementById('kanten').value;
-      document.getElementById('dicke-feld').hidden = kanten !== 'ausgleichen';
       return {
         kanten,
         dicke: zahl('dicke', 2),                       // Pappdicke in mm (echte Platte)
@@ -811,6 +980,7 @@
       document.getElementById('platte').innerHTML = aktuellesSvg.replace(/^<\?xml[^>]*>\s*/, '');
       document.getElementById('platte-info').textContent =
         `${e.breite} × ${e.hoehe} mm · 1:${e.massstab} · ${platziert.length} von ${teile.length} Teilen`;
+      zusammenfassen();
     }
 
     function runde(z) { return Math.round(z * 10) / 10; }
@@ -883,6 +1053,10 @@ ${pfade}
       document.body.classList.remove('ziehen');
       ladeDatei(e.dataTransfer.files[0]);
     });
+
+    // Start: Schritt 01 (Pappe) ist offen, die Vorschau zeigt schon die leere Platte
+    laserNeuBerechnen();
+    schritteZeigen();
 
     // Für Tests: Modell direkt aus Text laden
     window.laserprep = { zeigeModell, zeigeIfc, svg: () => aktuellesSvg, teile: () => flacheTeile };
