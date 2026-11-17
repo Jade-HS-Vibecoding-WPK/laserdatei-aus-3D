@@ -26,13 +26,13 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [ ] Doppelte/überlappende Linien automatisch entfernen
 - [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern)
-- [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(teilweise: einstellbar, Teile zeilenweise; platzsparend + mehrere Platten fehlen)*
+- [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(teilweise: mehrere Sorten und Platten, Teile zeilenweise; wirklich platzsparend fehlt noch)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
 - [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
 
 ### Should (wäre gut)
 - [x] Aufbau als Bento-Grid: 7 Schritte nacheinander abfragen (01 Pappe, 02 Datei, 03 Maßstab, 04 Farben, 05 Gehrung, 06 Bauteile, 07 Vorschau)
-- [ ] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
+- [x] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
 - [ ] Farben individuell zuordnen (Funktion ↔ Farbe)
 - [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
@@ -137,10 +137,24 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Entscheidungen für die nächsten Schritte: mehrere Pappsorten (Name, Größe, Dicke, Anzahl);
   Gruppen automatisch vorsortiert und änderbar.
 
+- 17.11.: Sechstes Feature fertig: **mehrere Pappsorten** in Kachel 01. Jede Sorte hat Name, Größe, Dicke und
+  Anzahl; mit „+ Pappsorte hinzufügen“ kommt eine neue dazu (× entfernt sie, eine bleibt immer).
+  Verteilung (solange es noch keine Gruppen gibt): erst alle Platten der ersten Sorte füllen, was nicht passt,
+  kommt auf die nächste Sorte. Teile, die für eine Sorte zu groß sind, wandern gleich weiter.
+  Bei „Materialstärke ausgleichen“ gilt für jedes Teil die Dicke der Pappe, auf der es liegt.
+  Vorschau: jede benutzte Platte als eigene Karte („Graupappe · Platte 1 von 2“, Größe, Dicke, Anzahl Teile)
+  mit eigenem SVG-Button; der Hauptbutton lädt alle Platten nacheinander herunter.
+  Dateiname: `testhaus_1-50_Graupappe_1.svg`. Meldungen: „Größer als jede Pappe“ bzw. „Kein Platz mehr,
+  alle Platten sind voll … Anzahl erhöhen oder Sorte hinzufügen“.
+  Getestet: Standard (1 × Graupappe 600 × 450) gibt Zeichen für Zeichen dieselbe SVG wie vorher;
+  2 × 260 × 180 → 2 Platten (4 + 2 Teile); 1 × Graupappe + 1 × Karton 1 mm → Rest auf den Karton.
+  Noch offen: Stößt ein Teil an ein Teil auf einer anderen Pappe, wird mit der eigenen Dicke gekürzt
+  (richtig wäre die Dicke der durchlaufenden Platte) – das klären wir mit den Gruppen.
+
 ## Nächste Schritte
-1. Mehrere Pappsorten mit Anzahl und mehrere Platten (Kachel 01, Vorschau mit mehreren Platten, platzsparend anordnen).
-2. Farben individuell zuordnen (Kachel 04).
-3. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
+1. Farben individuell zuordnen (Kachel 04).
+2. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
+3. Wirklich platzsparend anordnen (statt zeilenweise).
 4. Doppelte Linien entfernen.
 5. DXF-Export.
 6. Echtes Archicad-Modell testen (OBJ und IFC).

@@ -157,7 +157,7 @@
     .feld[hidden] { display: none; }
     .feld label { color: var(--grau); }
     .feld .reihe { display: flex; align-items: center; gap: 6px; }
-    select, input[type=number] {
+    select, input[type=number], input[type=text] {
       font: inherit; font-size: 14px; padding: 6px 8px;
       border: 1px solid var(--linie); background: #fff; width: 100%; min-width: 0;
     }
@@ -174,11 +174,30 @@
     #k-vorschau .inhalt { flex: 1; }
     #platte-info { font-size: 14px; color: var(--grau); }
     .gesperrt #platte-info { display: none; }
-    #platte { height: 60vh; min-height: 320px; }
-    #platte svg { width: 100%; height: 100%; display: block; }
+    /* Mehrere Platten nebeneinander; eine einzelne Platte nutzt die ganze Breite */
+    #platten { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+    .platte { margin: 0; border: 1px solid var(--linie); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .platte figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+    .platte figcaption .info { color: var(--grau); }
+    .platte .bild svg { width: 100%; height: auto; max-height: 60vh; display: block; }
     /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
-    #platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-    #platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    .platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+    .platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    .button.zweit { background: #fff; color: var(--akzent); box-shadow: inset 0 0 0 2px var(--akzent); }
+    .button.zweit:hover { background: rgba(255, 106, 0, 0.06); }
+    .klein-button { padding: 4px 12px; font-size: 12px; }
+
+    /* Pappsorten in Kachel 01 */
+    #pappen { display: flex; flex-direction: column; gap: 12px; }
+    .pappe { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--linie); }
+    .pappe:first-child { border-top: 0; padding-top: 0; }
+    .pappe-kopf { display: flex; gap: 8px; align-items: center; }
+    .pappe-kopf input { font-weight: 700; }
+    .entfernen { background: none; border: 0; font-size: 20px; line-height: 1; color: var(--grau); cursor: pointer; padding: 0 4px; }
+    .entfernen:hover { color: var(--akzent); }
+    .anzahl-text { color: var(--grau); white-space: nowrap; }
+    .textbutton { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--akzent); cursor: pointer; }
+    .textbutton:hover { text-decoration: underline; }
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
@@ -206,19 +225,9 @@
       <div class="kopf"><span class="nr">01</span><h2>Pappe</h2></div>
       <p class="zusammenfassung" data-zusammenfassung></p>
       <div class="inhalt">
-        <p class="frage">Wie groß ist deine Pappe und wie dick?</p>
-        <div class="feld">
-          <label for="breite">Größe (mm)</label>
-          <div class="reihe">
-            <input type="number" id="breite" value="600" min="10" step="1" aria-label="Breite in mm">
-            <span>×</span>
-            <input type="number" id="hoehe" value="450" min="10" step="1" aria-label="Höhe in mm">
-          </div>
-        </div>
-        <div class="feld" id="dicke-feld">
-          <label for="dicke">Dicke (mm)</label>
-          <input type="number" id="dicke" value="2" min="0.1" step="0.1">
-        </div>
+        <p class="frage">Welche Pappen hast du? Größe, Dicke und wie viele Platten davon.</p>
+        <div id="pappen"></div>
+        <button class="textbutton" id="pappe-neu">+ Pappsorte hinzufügen</button>
         <button class="button weiter">Weiter</button>
       </div>
     </section>
@@ -328,7 +337,7 @@
     <section class="kachel" id="k-vorschau" data-schritt="6">
       <div class="kopf"><span class="nr">07</span><h2>Vorschau</h2><span id="platte-info"></span></div>
       <div class="inhalt">
-        <div id="platte"></div>
+        <div id="platten"></div>
         <div class="fuss">
           <p id="meldung"></p>
           <button class="button" id="herunterladen">SVG herunterladen</button>
@@ -581,7 +590,7 @@
       const e = einstellungen();
       const kanten = document.getElementById('kanten');
       const texte = [
-        `${e.breite} × ${e.hoehe} mm · ${runde(e.dicke)} mm dick`,
+        e.pappen.map(p => `${p.anzahl} × ${p.name || 'Pappe'} ${p.breite} × ${p.hoehe} mm · ${runde(p.dicke)} mm`).join(' / '),
         modellGeladen ? `${modellGeladen.name} · ${modellGeladen.anzahl} Bauteile` : 'Noch kein Modell',
         `1:${e.massstab} · CAD in ${e.einheitMm === 1 ? 'mm' : 'm'}`,
         'Standardfarben',
@@ -593,7 +602,7 @@
         if (feld) feld.textContent = texte[i];
       });
       document.getElementById('kanten-hilfe').textContent = e.kanten === 'ausgleichen'
-        ? `Die größere Platte läuft durch, die kleinere wird um die Pappdicke (${runde(e.dicke)} mm) gekürzt – außen ist alles bündig.`
+        ? `Die größere Platte läuft durch, die kleinere wird um die Dicke ihrer Pappe (aus 01 Pappe) gekürzt – außen ist alles bündig.`
         : 'Die Teile werden so ausgeschnitten, wie sie im Modell flach liegen.';
     }
 
@@ -896,11 +905,61 @@
       return zug;
     }
 
-    // ---------- 6. Maßstab, Platte, Anordnung ----------
+    // ---------- 6. Pappen, Maßstab, Anordnung ----------
     let flacheTeile = [];
     let dateiBasis = 'laserdatei';
-    let aktuellesSvg = '';
+    let platten = [];                        // fertige Platten: { pappe, nr, platziert, svg }
     const ABSTAND = 5;                       // mm zwischen den Teilen und zum Plattenrand
+
+    // Pappsorten aus Kachel 01: Name, Größe, Dicke und wie viele Platten man davon hat
+    const pappen = [{ name: 'Graupappe', breite: 600, hoehe: 450, dicke: 2, anzahl: 1 }];
+
+    function pappenZeichnen() {
+      const liste = document.getElementById('pappen');
+      liste.innerHTML = '';
+      pappen.forEach((p, i) => {
+        const block = document.createElement('div');
+        block.className = 'pappe';
+        block.innerHTML = `
+          <div class="pappe-kopf">
+            <input type="text" data-feld="name" aria-label="Name der Pappe">
+            <button class="entfernen" title="Pappsorte entfernen" aria-label="Pappsorte entfernen">×</button>
+          </div>
+          <div class="feld"><label>Größe (mm)</label><div class="reihe">
+            <input type="number" data-feld="breite" min="10" step="1" aria-label="Breite in mm"><span>×</span>
+            <input type="number" data-feld="hoehe" min="10" step="1" aria-label="Höhe in mm"></div></div>
+          <div class="feld"><label>Dicke (mm)</label><div class="reihe">
+            <input type="number" data-feld="dicke" min="0.1" step="0.1" aria-label="Dicke in mm">
+            <span class="anzahl-text">Anzahl</span>
+            <input type="number" data-feld="anzahl" min="1" step="1" aria-label="Anzahl Platten"></div></div>`;
+        block.querySelectorAll('[data-feld]').forEach(feld => { feld.value = p[feld.dataset.feld]; feld.dataset.nr = i; });
+        const weg = block.querySelector('.entfernen');
+        weg.hidden = pappen.length === 1;    // eine Sorte muss bleiben
+        weg.addEventListener('click', () => { pappen.splice(i, 1); pappenZeichnen(); laserNeuBerechnen(); });
+        liste.appendChild(block);
+      });
+    }
+    document.getElementById('pappen').addEventListener('input', ev => {
+      const feld = ev.target.dataset.feld;
+      if (!feld) return;
+      const p = pappen[ev.target.dataset.nr];
+      if (feld === 'name') p.name = ev.target.value;
+      else {
+        const w = parseFloat(ev.target.value);
+        if (w > 0) p[feld] = feld === 'anzahl' ? Math.max(1, Math.round(w)) : w;
+      }
+      laserNeuBerechnen();
+    });
+    // Beim Verlassen eines Feldes ungültige Eingaben (z. B. Anzahl 0) wieder auf den gültigen Wert setzen
+    document.getElementById('pappen').addEventListener('change', ev => {
+      const feld = ev.target.dataset.feld;
+      if (feld && feld !== 'name') ev.target.value = pappen[ev.target.dataset.nr][feld];
+    });
+    document.getElementById('pappe-neu').addEventListener('click', () => {
+      pappen.push({ ...pappen[pappen.length - 1], name: `Pappe ${pappen.length + 1}` });
+      pappenZeichnen();
+      laserNeuBerechnen();
+    });
 
     function zahl(id, standard) {
       const w = parseFloat(document.getElementById(id).value);
@@ -912,14 +971,11 @@
       const frei = auswahl === 'frei';
       document.getElementById('frei').hidden = !frei;
       document.getElementById('frei-feld').hidden = !frei;
-      const kanten = document.getElementById('kanten').value;
       return {
-        kanten,
-        dicke: zahl('dicke', 2),                       // Pappdicke in mm (echte Platte)
+        kanten: document.getElementById('kanten').value,
         einheitMm: parseFloat(document.getElementById('einheit').value),
         massstab: frei ? zahl('frei', 75) : parseFloat(auswahl),
-        breite: zahl('breite', 600),
-        hoehe: zahl('hoehe', 450)
+        pappen
       };
     }
 
@@ -927,63 +983,114 @@
       const e = einstellungen();
       const faktor = e.einheitMm / e.massstab;       // CAD-Einheit → mm auf der Platte
 
-      // Kanten: „stumpf“ = Umrisse wie flach gelegt; „ausgleichen“ = Stöße um die
-      // Materialstärke anpassen (Dicke in mm auf der Platte → zurück in CAD-Einheiten)
-      let angepasst = 0;
-      const umrisse = flacheTeile.map(t => {
-        if (e.kanten !== 'ausgleichen') return t.zuege;
-        const r = kantenAusgleichen(t, e.dicke / faktor);
-        angepasst += r.anzahl;
-        return r.zuege;
-      });
-
-      // Jedes Teil verkleinern und seine Größe (Rechteck drumherum) bestimmen
-      const teile = flacheTeile.map((t, i) => {
-        const zuege = umrisse[i].map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
+      // Ein Teil für eine bestimmte Pappdicke fertig machen: Kanten anpassen
+      // („ausgleichen“), verkleinern und seine Größe (Rechteck drumherum) bestimmen
+      const teilFuer = (t, dicke) => {
+        let zuege = t.zuege, anzahl = 0;
+        if (e.kanten === 'ausgleichen') {
+          const r = kantenAusgleichen(t, dicke / faktor);   // Dicke in mm → CAD-Einheiten
+          zuege = r.zuege; anzahl = r.anzahl;
+        }
+        zuege = zuege.map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
         const alle = zuege.flat();
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
-        const b = maxX - minX, h = maxY - minY;
-        t.massFeld.textContent = alle.length ? `${runde(b)} × ${runde(h)} mm` : '–';
-        return { name: t.name, zuege, minX, maxY, b, h, leer: !alle.length };
+        return { name: t.name, zuege, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+      };
+      const passtAuf = (teil, pappe) => teil.b <= pappe.breite - 2 * ABSTAND && teil.h <= pappe.hoehe - 2 * ABSTAND;
+      const massZeigen = (t, teil) => { t.massFeld.textContent = `${runde(teil.b)} × ${runde(teil.h)} mm`; };
+
+      const ohneFlaeche = [];
+      let offen = flacheTeile.filter(t => {
+        if (t.zuege.length) return true;
+        ohneFlaeche.push(t.name);
+        t.massFeld.textContent = '–';
+        return false;
       });
 
-      // Zeilenweise nebeneinander legen, die höchsten Teile zuerst
-      const platziert = [], zuGross = [], keinPlatz = [], ohneFlaeche = [];
-      let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
-      [...teile].sort((a, b) => b.h - a.h).forEach(t => {
-        if (t.leer) { ohneFlaeche.push(t.name); return; }
-        if (t.b > e.breite - 2 * ABSTAND || t.h > e.hoehe - 2 * ABSTAND) { zuGross.push(t.name); return; }
-        if (x + t.b > e.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
-        if (y + t.h > e.hoehe - ABSTAND) { keinPlatz.push(t.name); return; }
-        platziert.push({ teil: t, x, y });
-        x += t.b + ABSTAND;
-        zeilenHoehe = Math.max(zeilenHoehe, t.h);
+      // Pappsorten der Reihe nach füllen: erst alle Platten der ersten Sorte,
+      // was nicht mehr passt, kommt auf die nächste Sorte. Auf jeder Platte
+      // liegen die Teile zeilenweise nebeneinander, die höchsten zuerst.
+      platten = [];
+      let angepasst = 0;
+      e.pappen.forEach(pappe => {
+        if (!offen.length) return;
+        const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
+        const zuGrossHier = kandidaten.filter(k => !passtAuf(k.teil, pappe));
+        let warten = kandidaten.filter(k => passtAuf(k.teil, pappe)).sort((a, b) => b.teil.h - a.teil.h);
+        for (let nr = 1; nr <= pappe.anzahl && warten.length; nr++) {
+          const platziert = [], uebrig = [];
+          let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
+          warten.forEach(k => {
+            const teil = k.teil;
+            if (x + teil.b > pappe.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
+            if (y + teil.h > pappe.hoehe - ABSTAND) { uebrig.push(k); return; }
+            platziert.push({ teil, x, y });
+            massZeigen(k.t, teil);
+            angepasst += teil.anzahl;
+            x += teil.b + ABSTAND;
+            zeilenHoehe = Math.max(zeilenHoehe, teil.h);
+          });
+          platten.push({ pappe, nr, platziert });
+          warten = uebrig;
+        }
+        offen = [...zuGrossHier, ...warten].map(k => k.t);
       });
+
+      // Was übrig bleibt: zu groß für jede Pappe – oder alle Platten sind voll
+      const zuGross = [], keinPlatz = [];
+      offen.forEach(t => {
+        const passtIrgendwo = e.pappen.some(p => passtAuf(teilFuer(t, p.dicke), p));
+        (passtIrgendwo ? keinPlatz : zuGross).push(t.name);
+        massZeigen(t, teilFuer(t, e.pappen[0].dicke));
+      });
+      if (!platten.length) platten.push({ pappe: e.pappen[0], nr: 1, platziert: [] });
+      platten.forEach(p => { p.svg = svgErzeugen(p.platziert, p.pappe.breite, p.pappe.hoehe); });
 
       // Hinweise
+      const anzahlTeile = platten.reduce((s, p) => s + p.platziert.length, 0);
       const meldungen = [];
-      if (zuGross.length) meldungen.push(`Größer als die Platte: ${zuGross.join(', ')}. Kleineren Maßstab oder größere Platte wählen.`);
-      if (keinPlatz.length) meldungen.push(`Passt nicht mehr auf die Platte: ${keinPlatz.join(', ')}.`);
+      if (zuGross.length) meldungen.push(`Größer als jede Pappe: ${zuGross.join(', ')}. Kleineren Maßstab oder größere Pappe wählen.`);
+      if (keinPlatz.length) meldungen.push(`Kein Platz mehr, alle Platten sind voll: ${keinPlatz.join(', ')}. Bei 01 Pappe die Anzahl erhöhen oder eine Sorte hinzufügen.`);
       if (ohneFlaeche.length) meldungen.push(`Keine Fläche gefunden: ${ohneFlaeche.join(', ')}.`);
       const meldung = document.getElementById('meldung');
       meldung.className = meldungen.length ? '' : 'ok';
-      meldung.textContent = meldungen.length ? meldungen.join(' ') : `Alle ${platziert.length} Teile passen auf die Platte.`;
+      meldung.textContent = meldungen.length ? meldungen.join(' ')
+        : `Alle ${anzahlTeile} Teile passen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}.`;
       if (e.kanten === 'ausgleichen') {
         const extra = document.createElement('span');
         extra.style.color = 'var(--grau)';
-        extra.textContent = ` ${angepasst} Stoßkanten an ${runde(e.dicke)} mm Materialstärke angepasst.`;
+        extra.textContent = ` ${angepasst} Stoßkanten an die Pappdicke angepasst.`;
         meldung.appendChild(extra);
       }
 
-      aktuellesSvg = svgErzeugen(platziert, e.breite, e.hoehe);
-      document.getElementById('platte').innerHTML = aktuellesSvg.replace(/^<\?xml[^>]*>\s*/, '');
+      vorschauZeichnen();
       document.getElementById('platte-info').textContent =
-        `${e.breite} × ${e.hoehe} mm · 1:${e.massstab} · ${platziert.length} von ${teile.length} Teilen`;
+        `1:${e.massstab} · ${anzahlTeile} von ${flacheTeile.length} Teilen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}`;
       zusammenfassen();
     }
 
     function runde(z) { return Math.round(z * 10) / 10; }
+
+    // Jede Platte als eigene Karte in der Vorschau, mit eigenem Download
+    function vorschauZeichnen() {
+      const ort = document.getElementById('platten');
+      ort.innerHTML = '';
+      platten.forEach(p => {
+        const karte = document.createElement('figure');
+        karte.className = 'platte';
+        karte.innerHTML = `<figcaption><span><strong></strong> <span class="info"></span></span>
+          <button class="button zweit klein-button">SVG</button></figcaption><div class="bild"></div>`;
+        karte.querySelector('strong').textContent = `${p.pappe.name || 'Pappe'} · Platte ${p.nr} von ${p.pappe.anzahl}`;
+        karte.querySelector('.info').textContent =
+          `${p.pappe.breite} × ${p.pappe.hoehe} mm · ${runde(p.pappe.dicke)} mm · ${p.platziert.length} Teile`;
+        karte.querySelector('.bild').innerHTML = p.svg.replace(/^<\?xml[^>]*>\s*/, '');
+        karte.querySelector('button').addEventListener('click', () => svgHerunterladen(p));
+        ort.appendChild(karte);
+      });
+      document.getElementById('herunterladen').textContent =
+        platten.length === 1 ? 'SVG herunterladen' : `Alle ${platten.length} Platten herunterladen`;
+    }
 
     // ---------- 7. Die SVG-Datei als Text schreiben ----------
     // Maße in mm: width="600mm" und viewBox 0 0 600 450 → 1 Einheit = 1 mm
@@ -1008,22 +1115,26 @@ ${pfade}
 `;
     }
 
-    function svgHerunterladen() {
-      if (!aktuellesSvg) return;
+    // Dateiname z. B. testhaus_1-50_Graupappe_2.svg
+    function svgHerunterladen(p) {
       const e = einstellungen();
+      const sorte = (p.pappe.name || '').trim().replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'Pappe';
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([aktuellesSvg], { type: 'image/svg+xml' }));
-      link.download = `${dateiBasis}_1-${e.massstab}.svg`;
+      link.href = URL.createObjectURL(new Blob([p.svg], { type: 'image/svg+xml' }));
+      link.download = `${dateiBasis}_1-${e.massstab}_${sorte}_${p.nr}.svg`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
 
-    ['einheit', 'massstab', 'frei', 'breite', 'hoehe', 'kanten', 'dicke'].forEach(id =>
+    ['einheit', 'massstab', 'frei', 'kanten'].forEach(id =>
       document.getElementById(id).addEventListener('input', laserNeuBerechnen)
     );
-    document.getElementById('herunterladen').addEventListener('click', svgHerunterladen);
+    // Alle Platten nacheinander herunterladen (kleine Pause, damit der Browser mitkommt)
+    document.getElementById('herunterladen').addEventListener('click', () =>
+      platten.forEach((p, i) => setTimeout(() => svgHerunterladen(p), i * 400))
+    );
 
     function ladeDatei(datei) {
       if (!datei) return;
@@ -1055,11 +1166,12 @@ ${pfade}
     });
 
     // Start: Schritt 01 (Pappe) ist offen, die Vorschau zeigt schon die leere Platte
+    pappenZeichnen();
     laserNeuBerechnen();
     schritteZeigen();
 
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell, zeigeIfc, svg: () => aktuellesSvg, teile: () => flacheTeile };
+    window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile };
   </script>
 </body>
 </html>
