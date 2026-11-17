@@ -271,6 +271,16 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   0/2/5 mm, 4 Pappgrößen, Formatvorschlag): 0 Überlappungen, alle Umrisse geschlossen. Stumpf, ausgleichen und
   Gehrung liefern Zeichen für Zeichen dieselbe SVG wie vorher (27 Vergleichsfälle).
 
+- 17.11.: **Vorschau mit 3D-Modell und Lupe** (Kachel 08). Links neben den Platten steht ein zweites, kleineres
+  3D-Modell (eigene Kamera, gleiche Szene). Es bleibt beim Scrollen im Bild und lässt sich drehen und zoomen.
+  Ein Klick auf ein Bauteil wählt es aus wie im großen Modell; hervorgehobene Teile leuchten in beiden Modellen
+  orange. Im schmalen Fenster steht das kleine Modell über den Platten.
+  **Lupe:** Fährt die Maus über eine Platte, folgt ihr ein runder Kreis (180 px) mit dem Bereich darunter in
+  3-facher Größe, inklusive Hervorhebung und Teilname. Die Lupe lässt die Maus durch, das Hervorheben
+  funktioniert also weiter. Auf Touch-Geräten gibt es keine Lupe. Die Laserdatei (SVG) ändert sich nicht.
+  Getestet mit OBJ-Testhaus und Walmdach: Modell und Platten nebeneinander (Fenster 1400 px), Klick im kleinen
+  Modell markiert Wand_Nord in Liste und Vorschau, die Lupenmitte zeigt dieselbe Stelle wie die Maus.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

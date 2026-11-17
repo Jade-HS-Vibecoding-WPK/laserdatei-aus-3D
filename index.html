@@ -249,19 +249,39 @@
     .platte figcaption .info { color: var(--grau); }
     .platte .bild svg { width: 100%; height: auto; max-height: 60vh; display: block; }
     /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
-    .platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-    .platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; transition: opacity 0.15s, fill 0.15s; }
+    :is(.platte, #lupe) svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+    :is(.platte, #lupe) svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; transition: opacity 0.15s, fill 0.15s; }
     /* Hervorheben mit der Maus: ganzes Teil reagiert, der Rest wird blass */
-    .platte svg path.teil { pointer-events: all; cursor: pointer; }
-    .platte svg.hervor path:not(.aktiv-teil) { opacity: 0.15; }
-    .platte svg path.teil.aktiv-teil { fill: rgba(255, 106, 0, 0.12); stroke-width: 2px; }
+    :is(.platte, #lupe) svg path.teil { pointer-events: all; cursor: pointer; }
+    :is(.platte, #lupe) svg.hervor path:not(.aktiv-teil) { opacity: 0.15; }
+    :is(.platte, #lupe) svg path.teil.aktiv-teil { fill: rgba(255, 106, 0, 0.12); stroke-width: 2px; }
     /* Nummer + Name erscheinen nur auf dem Teil, über dem die Maus ist – in der Schrift der App */
-    .platte svg .beschriftung {
+    :is(.platte, #lupe) svg .beschriftung {
       fill: var(--text); font-family: inherit; font-weight: 700;
       text-anchor: middle; dominant-baseline: middle; pointer-events: none;
       opacity: 0; transition: opacity 0.15s;
     }
-    .platte svg .beschriftung.aktiv-teil { opacity: 1; }
+    :is(.platte, #lupe) svg .beschriftung.aktiv-teil { opacity: 1; }
+    /* Kleines 3D-Modell links neben den Platten; bleibt beim Scrollen im Bild */
+    .vorschau-reihe { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2.2fr); gap: 16px; align-items: start; }
+    .modell-klein { margin: 0; position: sticky; top: 16px; border: 1px solid var(--linie); border-radius: 12px;
+      background: #fff; color: var(--grau); overflow: hidden; }
+    #ansicht2 { height: 380px; position: relative; }
+    #ansicht2 canvas { display: block; }
+    .modell-klein figcaption { font-size: 12px; padding: 8px 12px; border-top: 1px solid var(--linie); }
+    .gesperrt .modell-klein { display: none; }
+    .gesperrt .vorschau-reihe { grid-template-columns: minmax(0, 1fr); }
+    @media (max-width: 900px) {
+      .vorschau-reihe { grid-template-columns: minmax(0, 1fr); }
+      .modell-klein { position: static; }
+      #ansicht2 { height: 280px; }
+    }
+    /* Lupe: runder Ausschnitt, 3-fach vergrößert, folgt der Maus über den Platten */
+    #lupe { position: fixed; left: 0; top: 0; width: 180px; height: 180px; border-radius: 50%; overflow: hidden;
+      background: #fff; box-shadow: 0 0 0 2px var(--akzent), 0 4px 18px rgba(0, 0, 0, 0.18);
+      pointer-events: none; z-index: 50; display: none; }
+    #lupe.sichtbar { display: block; }
+    #lupe svg { position: absolute; left: 0; top: 0; max-height: none; transform-origin: 0 0; }
     #teile li.aktiv-teil { color: var(--akzent); }
     #teile li.abgewaehlt { opacity: 0.4; text-decoration: line-through; }
 
@@ -579,7 +599,14 @@
       <div class="kopf"><span class="nr">08</span><h2>Vorschau</h2><span id="platte-info"></span></div>
       <div class="inhalt">
         <div class="vorschlag" id="vorschlag" hidden></div>
-        <div id="platten"></div>
+        <!-- Links ein zweites, kleines 3D-Modell (zeigt, welches Bauteil gerade gemeint ist), rechts die Platten -->
+        <div class="vorschau-reihe">
+          <figure class="modell-klein">
+            <div id="ansicht2"></div>
+            <figcaption>Klick: Bauteil zeigen · Ziehen: drehen · Rad: zoomen</figcaption>
+          </figure>
+          <div id="platten"></div>
+        </div>
         <div class="fuss">
           <label class="abstand-feld">Abstand
             <input type="number" id="abstand" value="5" min="0" step="0.5" aria-label="Abstand zwischen den Teilen in mm"> mm
@@ -626,10 +653,33 @@
     }
     new ResizeObserver(groesseAnpassen).observe(ansicht);
 
+    // Zweites, kleines 3D-Modell in der Vorschau (Kachel 08). Es zeigt dieselbe Szene mit
+    // eigener Kamera – wird ein Bauteil hervorgehoben, leuchtet es in beiden Ansichten.
+    const ansicht2 = document.getElementById('ansicht2');
+    const renderer2 = new THREE.WebGLRenderer({ antialias: true });
+    renderer2.setPixelRatio(window.devicePixelRatio);
+    renderer2.setClearColor(0xffffff);
+    ansicht2.appendChild(renderer2.domElement);
+    const kamera2 = new THREE.PerspectiveCamera(40, 1, 1, 1e7);
+    kamera2.position.set(1, 1, 1);
+    const steuerung2 = new OrbitControls(kamera2, renderer2.domElement);
+    steuerung2.enableDamping = true;
+    new ResizeObserver(() => {
+      const b = ansicht2.clientWidth, h = ansicht2.clientHeight;
+      if (!b || !h) return;                    // Kachel noch gesperrt → unsichtbar
+      renderer2.setSize(b, h);
+      kamera2.aspect = b / h;
+      kamera2.updateProjectionMatrix();
+    }).observe(ansicht2);
+
     // Dauerschleife, die das Bild immer neu zeichnet
     renderer.setAnimationLoop(() => {
       steuerung.update();
       renderer.render(szene, kamera);
+      if (ansicht2.clientWidth) {              // kleines Modell nur zeichnen, wenn es zu sehen ist
+        steuerung2.update();
+        renderer2.render(szene, kamera2);
+      }
     });
 
     // ---------- 2. Aussehen der Bauteile ----------
@@ -789,6 +839,13 @@
       kamera.updateProjectionMatrix();
       steuerung.target.set(0, 0, 0);
       steuerung.update();
+      // kleines Modell in der Vorschau: gleicher Blick
+      kamera2.position.copy(kamera.position);
+      kamera2.near = kamera.near;
+      kamera2.far = kamera.far;
+      kamera2.updateProjectionMatrix();
+      steuerung2.target.set(0, 0, 0);
+      steuerung2.update();
 
       // Seitenleiste füllen
       document.getElementById('hinweis').style.display = 'none';
@@ -2206,20 +2263,59 @@
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     const strahl = new THREE.Raycaster();
-    let druckPunkt = null;
-    renderer.domElement.addEventListener('pointerdown', ev => { druckPunkt = [ev.clientX, ev.clientY]; });
-    renderer.domElement.addEventListener('pointerup', ev => {
-      if (!druckPunkt || ev.button !== 0) return;
-      const bewegt = Math.hypot(ev.clientX - druckPunkt[0], ev.clientY - druckPunkt[1]);
-      druckPunkt = null;
-      if (bewegt > 5 || !flacheTeile.length) return;   // war Drehen/Verschieben
-      const r = renderer.domElement.getBoundingClientRect();
-      const zeiger = new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
-      strahl.setFromCamera(zeiger, kamera);
-      const meshes = flacheTeile.map(t => t.mesh);
-      const treffer = strahl.intersectObjects(meshes, false)[0];
-      auswaehlen(treffer ? meshes.indexOf(treffer.object) : null);
-    });
+    // Gilt für das große Modell (Kachel 02) und das kleine in der Vorschau (Kachel 08)
+    function klickAuswahl(flaeche, kam) {
+      let druckPunkt = null;
+      flaeche.addEventListener('pointerdown', ev => { druckPunkt = [ev.clientX, ev.clientY]; });
+      flaeche.addEventListener('pointerup', ev => {
+        if (!druckPunkt || ev.button !== 0) return;
+        const bewegt = Math.hypot(ev.clientX - druckPunkt[0], ev.clientY - druckPunkt[1]);
+        druckPunkt = null;
+        if (bewegt > 5 || !flacheTeile.length) return;   // war Drehen/Verschieben
+        const r = flaeche.getBoundingClientRect();
+        const zeiger = new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+        strahl.setFromCamera(zeiger, kam);
+        const meshes = flacheTeile.map(t => t.mesh);
+        const treffer = strahl.intersectObjects(meshes, false)[0];
+        auswaehlen(treffer ? meshes.indexOf(treffer.object) : null);
+      });
+    }
+    klickAuswahl(renderer.domElement, kamera);
+    klickAuswahl(renderer2.domElement, kamera2);
+
+    // ---------- 6e. Lupe über der Vorschau ----------
+    // Ein runder Kreis folgt der Maus und zeigt den Bereich darunter 3-mal so groß.
+    // Dafür wird die Platte (SVG) kopiert, vergrößert und so verschoben, dass die Stelle
+    // unter der Maus genau in der Mitte des Kreises liegt. Die Lupe lässt Mausklicks durch,
+    // das Hervorheben der Teile funktioniert also weiter.
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      const LUPE_FAKTOR = 3;
+      const lupe = document.createElement('div');
+      lupe.id = 'lupe';
+      lupe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(lupe);
+      let maus = null, geplant = false;
+      const lupeZeichnen = () => {
+        geplant = false;
+        const svg = maus && document.elementFromPoint(maus.clientX, maus.clientY)?.closest('.platte .bild svg');
+        if (!svg) { lupe.classList.remove('sichtbar'); return; }
+        const r = svg.getBoundingClientRect(), radius = lupe.clientWidth / 2 || 90;
+        const kopie = svg.cloneNode(true);       // jedes Mal neu, damit Hervorhebungen mitkommen
+        kopie.setAttribute('width', r.width * LUPE_FAKTOR);
+        kopie.setAttribute('height', r.height * LUPE_FAKTOR);
+        kopie.style.transform = `translate(${radius - (maus.clientX - r.left) * LUPE_FAKTOR}px, ${radius - (maus.clientY - r.top) * LUPE_FAKTOR}px)`;
+        lupe.replaceChildren(kopie);
+        lupe.style.transform = `translate(${maus.clientX - radius}px, ${maus.clientY - radius}px)`;
+        lupe.classList.add('sichtbar');
+      };
+      const platten = document.getElementById('platten');
+      platten.addEventListener('mousemove', ev => {
+        maus = ev;
+        if (!geplant) { geplant = true; requestAnimationFrame(lupeZeichnen); }   // höchstens einmal pro Bild
+      });
+      platten.addEventListener('mouseleave', () => { maus = null; lupe.classList.remove('sichtbar'); });
+      addEventListener('scroll', () => lupe.classList.remove('sichtbar'), { passive: true });
+    }
 
     // ---------- 6b. Laser-Farben (Kachel 04: Funktion ↔ Farbe) ----------
     // Jede Funktion bekommt eine Farbe. Standard nach unserer Konvention; eigene Farben
