@@ -369,6 +369,10 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   an der Hakenspitze – genau dort liegt die Mausposition. Außerhalb der Platten und bei ausgeschaltetem Maßband bleibt
   der Punkt wie gewohnt. Getestet: aus → Punkt, an über der Platte → Maßband, an außerhalb → Punkt.
 
+- 17.11.: **Maßband-Zeiger reduziert.** Statt des gefüllten Symbols mit Strichen nur noch dünne orange Linien
+  (1,5 px): abgerundetes Quadrat als Gehäuse, eine Linie als Band, ein kurzer Strich als Haken. Etwas kleiner
+  (24 × 16 px); gemessen wird weiter an der Hakenspitze.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
