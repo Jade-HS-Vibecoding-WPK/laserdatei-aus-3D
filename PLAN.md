@@ -296,6 +296,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   und wird orange auf weißer Spur (auf weißem Grund: orange Spur). Für Screenreader als „Schalter“ gekennzeichnet.
   Getestet: Klick schaltet an (Knopf nach rechts) und wieder aus (Knopf zurück).
 
+- 17.11.: **Mauszeiger über dem 3D-Modell als Ring.** Über dem großen und dem kleinen 3D-Modell wird der orange
+  Punkt zu einem orangen Ring (22 px), daran erkennt man: hier kann man drehen und verschieben. Hält man eine
+  Maustaste gedrückt, wird der Ring seitlich zusammengedrückt (halb so breit), auch wenn die Maus beim Ziehen kurz
+  aus dem Modell fährt. Beim Loslassen wird er wieder rund, außerhalb des Modells wieder zum Punkt.
+  Getestet: Maus über dem Modell → Ring, Taste gedrückt → zusammengedrückt, losgelassen → rund, daneben → Punkt.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

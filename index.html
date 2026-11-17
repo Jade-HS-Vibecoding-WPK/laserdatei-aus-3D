@@ -368,8 +368,13 @@
       background: var(--akzent);
       pointer-events: none;
       opacity: 0;
-      transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s;
+      transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s, scale 0.12s;
     }
+    /* Über dem 3D-Modell wird der Punkt zum Ring (zeigt: hier kann man drehen und bewegen) … */
+    #punkt.ring { width: 22px; height: 22px; margin: -11px 0 0 -11px; background: transparent;
+      box-shadow: inset 0 0 0 2px var(--akzent); }
+    /* … und solange eine Maustaste gedrückt ist, wird der Ring seitlich zusammengedrückt */
+    #punkt.ring.gedrueckt { scale: 0.55 1; }
     #punkt.sichtbar { opacity: 1; }
     #punkt.weiss { background: #fff; }
     /* Über Buttons, Feldern und anklickbaren Kacheln wird der Punkt etwas größer */
@@ -2517,6 +2522,19 @@ ${pfade}
         }
         return false;
       };
+      // Über einem der beiden 3D-Modelle wird der Punkt zum Ring. Wer dort eine Maustaste
+      // drückt (drehen, verschieben), sieht den Ring seitlich zusammengedrückt – auch wenn
+      // die Maus beim Ziehen kurz aus dem Modell hinausfährt.
+      const MODELL = '#ansicht canvas, #ansicht2 canvas';
+      let zieht3d = false;
+      addEventListener('pointerdown', ev => {
+        if (!ev.target.closest?.(MODELL)) return;
+        zieht3d = true;
+        punkt.classList.add('ring', 'gedrueckt');
+      }, true);
+      const loslassen = () => { zieht3d = false; punkt.classList.remove('gedrueckt'); };
+      addEventListener('pointerup', loslassen, true);
+      addEventListener('pointercancel', loslassen, true);
       let maus = null, geplant = false;
       addEventListener('mousemove', ev => {
         maus = ev;
@@ -2528,6 +2546,7 @@ ${pfade}
           const el = document.elementFromPoint(maus.clientX, maus.clientY);
           punkt.classList.toggle('weiss', aufOrange(el));
           punkt.classList.toggle('gross', !!el?.closest('button, a, select, input, .erledigt'));
+          punkt.classList.toggle('ring', zieht3d || !!el?.closest(MODELL));
           punkt.classList.add('sichtbar');
         });
       });
