@@ -25,7 +25,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
 - [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [ ] Doppelte/überlappende Linien automatisch entfernen
-- [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern)
+- [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(teilweise: Farben einstellbar; in der SVG gibt es bisher nur Schneiden + Orientierungsrahmen, Anritzen/Gravur folgen)*
 - [ ] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(teilweise: mehrere Sorten und Platten, Teile zeilenweise; wirklich platzsparend fehlt noch)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
 - [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
@@ -34,7 +34,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Aufbau als Bento-Grid: 7 Schritte nacheinander abfragen (01 Pappe, 02 Datei, 03 Maßstab, 04 Farben, 05 Gehrung, 06 Bauteile, 07 Vorschau)
 - [x] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
 - [x] „Ich habe noch keine Pappe“: LaserPrep schlägt das handelsübliche Format mit dem wenigsten Rest vor (begrenzt aufs Laserbett)
-- [ ] Farben individuell zuordnen (Funktion ↔ Farbe)
+- [x] Farben individuell zuordnen (Funktion ↔ Farbe)
 - [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
@@ -180,11 +180,16 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Hinweis: Die Ausnutzung ist noch niedrig, weil die Teile nur zeilenweise liegen – platzsparendes Anordnen
   verbessert später auch den Vorschlag.
 
+- 17.11.: **Farben zuordnen** in Kachel 04: Für Schneiden, Anritzen, Orientierung und Gravur gibt es je ein Farbfeld
+  (Klick öffnet die Farbauswahl), daneben der Farbname. Haben zwei Funktionen dieselbe Farbe, warnt die App.
+  „Standardfarben wiederherstellen“ setzt Rot/Blau/Gelb/Schwarz zurück. Vorschau und SVG benutzen sofort die
+  gewählten Farben (bisher Schneiden + Rahmen, weil es noch keine Anritz- oder Gravurlinien gibt). Der Browser merkt
+  sich die eigenen Farben für das nächste Mal. Mit Standardfarben ist die SVG Zeichen für Zeichen wie vorher.
+
 ## Nächste Schritte
-1. Farben individuell zuordnen (Kachel 04).
-2. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
-3. Wirklich platzsparend anordnen (statt zeilenweise).
-4. Doppelte Linien entfernen.
-5. DXF-Export.
-6. Echtes Archicad-Modell testen (OBJ und IFC).
-7. Kanten: „Gehrung von Hand“, danach „Auffalten“ (Kachel 05).
+1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
+2. Wirklich platzsparend anordnen (statt zeilenweise).
+3. Doppelte Linien entfernen.
+4. DXF-Export.
+5. Echtes Archicad-Modell testen (OBJ und IFC).
+6. Kanten: „Gehrung von Hand“, danach „Auffalten“ (Kachel 05).

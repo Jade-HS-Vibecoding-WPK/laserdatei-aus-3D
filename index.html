@@ -195,8 +195,16 @@
     /* Farben (Laser-Konvention) */
     .farben { list-style: none; margin: 0; padding: 0; font-size: 14px; }
     .farben li { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
-    .farben .muster { width: 28px; height: 0; border-top: 3px solid; }
-    .farben .muster.flaeche { height: 12px; border: 0; }
+    .farben input[type=color] {
+      width: 40px; height: 26px; padding: 0; border: 1px solid var(--linie); border-radius: 6px;
+      background: none; cursor: pointer; flex: none;
+    }
+    .farben input[type=color]::-webkit-color-swatch-wrapper { padding: 2px; }
+    .farben input[type=color]::-webkit-color-swatch { border: 0; border-radius: 4px; }
+    .farben .funktion { flex: 1; }
+    .farben .farbname { color: var(--grau); font-size: 12px; }
+    #farben-warnung:empty { display: none; }
+    .kachel.aktiv #farben-warnung { color: #fff; font-weight: 700; }
     .klein { font-size: 12px; color: var(--grau); margin: 0; line-height: 1.5; }
 
     /* Vorschau der Laserplatte */
@@ -391,14 +399,15 @@
       <div class="kopf"><span class="nr">04</span><h2>Farben</h2></div>
       <p class="zusammenfassung" data-zusammenfassung></p>
       <div class="inhalt">
-        <p class="frage">So liest der Laser die Farben:</p>
-        <ul class="farben">
-          <li><span class="muster" style="color: rgb(255,0,0)"></span>Rot · Schneiden</li>
-          <li><span class="muster" style="color: rgb(0,0,255)"></span>Blau · Anritzen</li>
-          <li><span class="muster" style="color: rgb(255,220,0)"></span>Gelb · Orientierung</li>
-          <li><span class="muster flaeche" style="background: #000"></span>Schwarz · Gravur</li>
+        <p class="frage">Welche Farbe bedeutet an deinem Laser was? Klicke auf ein Farbfeld, um es zu ändern.</p>
+        <ul class="farben" id="farben-liste">
+          <li><input type="color" data-funktion="schneiden" aria-label="Farbe für Schneiden"><span class="funktion">Schneiden</span><span class="farbname"></span></li>
+          <li><input type="color" data-funktion="anritzen" aria-label="Farbe für Anritzen"><span class="funktion">Anritzen</span><span class="farbname"></span></li>
+          <li><input type="color" data-funktion="orientierung" aria-label="Farbe für Orientierung"><span class="funktion">Orientierung</span><span class="farbname"></span></li>
+          <li><input type="color" data-funktion="gravur" aria-label="Farbe für Gravur"><span class="funktion">Gravur</span><span class="farbname"></span></li>
         </ul>
-        <p class="klein">Eigene Zuordnung (z. B. für einen anderen Laser) kommt im nächsten Schritt.</p>
+        <p class="klein" id="farben-warnung"></p>
+        <button class="textbutton" id="farben-standard">Standardfarben wiederherstellen</button>
         <button class="button weiter">Weiter</button>
       </div>
     </section>
@@ -697,7 +706,7 @@
           : e.pappen.map(p => `${p.anzahl} × ${p.name || 'Pappe'} ${p.breite} × ${p.hoehe} mm · ${runde(p.dicke)} mm`).join(' / '),
         modellGeladen ? `${modellGeladen.name} · ${modellGeladen.anzahl} Bauteile` : 'Noch kein Modell',
         `1:${e.massstab} · CAD in ${e.einheitMm === 1 ? 'mm' : 'm'}`,
-        'Standardfarben',
+        farbenZusammenfassung(),
         kanten.options[kanten.selectedIndex].text,
         modellGeladen ? `${modellGeladen.anzahl} Bauteile` : '–'
       ];
@@ -1302,6 +1311,60 @@
         platten.length === 1 ? 'SVG herunterladen' : `Alle ${platten.length} Platten herunterladen`;
     }
 
+    // ---------- 6b. Laser-Farben (Kachel 04: Funktion ↔ Farbe) ----------
+    // Jede Funktion bekommt eine Farbe. Standard nach unserer Konvention; eigene Farben
+    // merkt sich der Browser (localStorage), damit man sie nicht jedes Mal neu einstellt.
+    const FARBEN_STANDARD = { schneiden: '#ff0000', anritzen: '#0000ff', orientierung: '#ffff00', gravur: '#000000' };
+    const FUNKTIONEN = { schneiden: 'Schneiden', anritzen: 'Anritzen', orientierung: 'Orientierung', gravur: 'Gravur' };
+    const FARBNAMEN = { '#ff0000': 'rot', '#0000ff': 'blau', '#ffff00': 'gelb', '#000000': 'schwarz',
+      '#00ff00': 'grün', '#ff00ff': 'magenta', '#00ffff': 'cyan', '#ffffff': 'weiß' };
+    const farben = { ...FARBEN_STANDARD };
+    try { Object.assign(farben, JSON.parse(localStorage.getItem('laserprep-farben') || '{}')); } catch (e) { /* egal */ }
+
+    function rgb(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgb(${n >> 16},${(n >> 8) & 255},${n & 255})`;
+    }
+    function farbname(hex) { return FARBNAMEN[hex.toLowerCase()] || rgb(hex); }
+
+    function farbenZeigen() {
+      document.querySelectorAll('#farben-liste input').forEach(feld => {
+        feld.value = farben[feld.dataset.funktion];
+        feld.closest('li').querySelector('.farbname').textContent = farbname(feld.value);
+      });
+      // Zwei Funktionen mit derselben Farbe kann der Laser nicht auseinanderhalten
+      const gleich = [];
+      const liste = Object.keys(FUNKTIONEN);
+      liste.forEach((a, i) => liste.slice(i + 1).forEach(b => {
+        if (farben[a].toLowerCase() === farben[b].toLowerCase()) gleich.push(`${FUNKTIONEN[a]} und ${FUNKTIONEN[b]}`);
+      }));
+      document.getElementById('farben-warnung').textContent = gleich.length
+        ? `Achtung: ${gleich.join(', ')} haben dieselbe Farbe – der Laser kann sie dann nicht unterscheiden.` : '';
+    }
+
+    function farbenZusammenfassung() {
+      const geaendert = Object.keys(FUNKTIONEN).filter(f => farben[f].toLowerCase() !== FARBEN_STANDARD[f]);
+      if (!geaendert.length) return 'Standardfarben';
+      return 'Eigene Farben: ' + Object.keys(FUNKTIONEN).map(f => `${FUNKTIONEN[f]} ${farbname(farben[f])}`).join(' · ');
+    }
+
+    function farbenGeaendert() {
+      try { localStorage.setItem('laserprep-farben', JSON.stringify(farben)); } catch (e) { /* egal */ }
+      farbenZeigen();
+      laserNeuBerechnen();                     // Vorschau und SVG mit den neuen Farben
+    }
+    document.getElementById('farben-liste').addEventListener('input', ev => {
+      const f = ev.target.dataset.funktion;
+      if (!f) return;
+      farben[f] = ev.target.value;
+      farbenGeaendert();
+    });
+    document.getElementById('farben-standard').addEventListener('click', () => {
+      Object.assign(farben, FARBEN_STANDARD);
+      farbenGeaendert();
+    });
+    farbenZeigen();
+
     // ---------- 7. Die SVG-Datei als Text schreiben ----------
     // Maße in mm: width="600mm" und viewBox 0 0 600 450 → 1 Einheit = 1 mm
     function svgErzeugen(platziert, breite, hoehe) {
@@ -1316,9 +1379,9 @@
       }).join('\n');
       return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${f(breite)}mm" height="${f(hoehe)}mm" viewBox="0 0 ${f(breite)} ${f(hoehe)}">
-  <!-- LaserPrep: gelb = Orientierungsrahmen (Platte), rot = Schneiden, Haarlinien -->
-  <rect x="0" y="0" width="${f(breite)}" height="${f(hoehe)}" fill="none" stroke="rgb(255,255,0)" stroke-width="0.01"/>
-  <g fill="none" stroke="rgb(255,0,0)" stroke-width="0.01">
+  <!-- LaserPrep: ${farbname(farben.orientierung)} = Orientierungsrahmen (Platte), ${farbname(farben.schneiden)} = Schneiden, Haarlinien -->
+  <rect x="0" y="0" width="${f(breite)}" height="${f(hoehe)}" fill="none" stroke="${rgb(farben.orientierung)}" stroke-width="0.01"/>
+  <g fill="none" stroke="${rgb(farben.schneiden)}" stroke-width="0.01">
 ${pfade}
   </g>
 </svg>
