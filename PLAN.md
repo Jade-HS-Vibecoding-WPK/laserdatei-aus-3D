@@ -302,6 +302,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   aus dem Modell fährt. Beim Loslassen wird er wieder rund, außerhalb des Modells wieder zum Punkt.
   Getestet: Maus über dem Modell → Ring, Taste gedrückt → zusammengedrückt, losgelassen → rund, daneben → Punkt.
 
+- 17.11.: **Gedrückter Ring wird eine „8“.** Statt eines Ovals verwandelt sich der Ring beim Gedrückthalten in einer
+  kurzen Bewegung in eine 8: oben und unten je ein runder Bogen, in der Mitte seitlich eingeschnürt, die beiden
+  Seiten berühren sich aber nicht (6 px Abstand). Beim Loslassen wird sie wieder zum Ring. Der Ring ist dafür jetzt
+  eine kleine Zeichnung (SVG) im Mauszeiger; in Safari springt die Form ohne Übergang um.
+  Getestet: Ring über dem Modell, Taste gedrückt → 8, losgelassen → wieder Ring.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

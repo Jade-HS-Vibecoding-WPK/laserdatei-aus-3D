@@ -368,13 +368,21 @@
       background: var(--akzent);
       pointer-events: none;
       opacity: 0;
-      transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s, scale 0.12s;
+      transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s;
     }
     /* Über dem 3D-Modell wird der Punkt zum Ring (zeigt: hier kann man drehen und bewegen) … */
-    #punkt.ring { width: 22px; height: 22px; margin: -11px 0 0 -11px; background: transparent;
-      box-shadow: inset 0 0 0 2px var(--akzent); }
-    /* … und solange eine Maustaste gedrückt ist, wird der Ring seitlich zusammengedrückt */
-    #punkt.ring.gedrueckt { scale: 0.55 1; }
+    #punkt.ring { width: 24px; height: 24px; margin: -12px 0 0 -12px; background: transparent; }
+    #punkt svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    #punkt.ring svg { display: block; }
+    #punkt svg path {
+      fill: none; stroke: var(--akzent); stroke-width: 2;
+      d: path("M12 2 C14.36 2 17.4 3.26 19.07 4.93 C20.74 6.6 22 9.64 22 12 C22 14.36 20.74 17.4 19.07 19.07 C17.4 20.74 14.36 22 12 22 C9.64 22 6.6 20.74 4.93 19.07 C3.26 17.4 2 14.36 2 12 C2 9.64 3.26 6.6 4.93 4.93 C6.6 3.26 9.64 2 12 2 Z");
+      transition: d 0.15s;
+    }
+    /* … und solange eine Maustaste gedrückt ist, wird der Ring zu einer „8“, deren Mitte sich nicht berührt */
+    #punkt.ring.gedrueckt svg path {
+      d: path("M12 1 C14.17 1 18 3.67 18.5 5.5 C19 7.33 15 9.83 15 12 C15 14.17 19 16.67 18.5 18.5 C18 20.33 14.17 23 12 23 C9.83 23 6 20.33 5.5 18.5 C5 16.67 9 14.17 9 12 C9 9.83 5 7.33 5.5 5.5 C6 3.67 9.83 1 12 1 Z");
+    }
     #punkt.sichtbar { opacity: 1; }
     #punkt.weiss { background: #fff; }
     /* Über Buttons, Feldern und anklickbaren Kacheln wird der Punkt etwas größer */
@@ -409,7 +417,7 @@
   </script>
 </head>
 <body class="intro">
-  <div id="punkt" aria-hidden="true"></div>
+  <div id="punkt" aria-hidden="true"><svg viewBox="0 0 24 24"><path/></svg></div>
   <header>
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
