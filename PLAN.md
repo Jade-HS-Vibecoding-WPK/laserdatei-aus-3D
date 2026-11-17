@@ -281,6 +281,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet mit OBJ-Testhaus und Walmdach: Modell und Platten nebeneinander (Fenster 1400 px), Klick im kleinen
   Modell markiert Wand_Nord in Liste und Vorschau, die Lupenmitte zeigt dieselbe Stelle wie die Maus.
 
+- 17.11.: **Lupe flackert nicht mehr.** Ursache: Die vergrößerte Kopie in der Lupe hat die Maus selbst „gefangen“,
+  sobald ein Teil unter dem Mauszeiger lag. Die App dachte dann, die Maus sei nicht mehr über der Platte, und
+  blendete die Lupe aus; beim nächsten Bild kam sie wieder (an, aus, an …). Jetzt lässt die Kopie die Maus immer
+  durch. Getestet: 20 Mausschritte quer über die Platte, Lupe durchgehend sichtbar (vorher jeder zweite Schritt aus).
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

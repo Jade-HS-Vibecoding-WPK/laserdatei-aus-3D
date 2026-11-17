@@ -281,6 +281,8 @@
       background: #fff; box-shadow: 0 0 0 2px var(--akzent), 0 4px 18px rgba(0, 0, 0, 0.18);
       pointer-events: none; z-index: 50; display: none; }
     #lupe.sichtbar { display: block; }
+    /* Die Kopie in der Lupe darf die Maus nie „abfangen“ – sonst verschwindet die Lupe kurz (Flackern) */
+    #lupe * { pointer-events: none !important; transition: none !important; }
     #lupe svg { position: absolute; left: 0; top: 0; max-height: none; transform-origin: 0 0; }
     #teile li.aktiv-teil { color: var(--akzent); }
     #teile li.abgewaehlt { opacity: 0.4; text-decoration: line-through; }
