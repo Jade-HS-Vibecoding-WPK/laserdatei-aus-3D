@@ -228,6 +228,21 @@
     .anzahl-text { color: var(--grau); white-space: nowrap; }
     .textbutton { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--akzent); cursor: pointer; }
     .textbutton:hover { text-decoration: underline; }
+    .inhalt[hidden] { display: none; }
+    /* Umschalter „Ich habe noch keine Pappe“: Pille mit Rahmen in Schriftfarbe */
+    .umschalter {
+      align-self: flex-start; background: none; color: inherit; font: inherit; font-size: 13px; font-weight: 500;
+      border: 1.5px solid currentColor; border-radius: 999px; padding: 6px 14px; cursor: pointer;
+    }
+    .umschalter:hover { background: rgba(255, 255, 255, 0.15); }
+    /* Formatvorschlag in der Vorschau */
+    .vorschlag {
+      background: #fff; color: var(--text); border-radius: 12px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 14px;
+    }
+    .vorschlag[hidden] { display: none; }
+    .vorschlag .info { color: var(--grau); }
+    .kachel:not(.aktiv) .vorschlag { border: 1px solid var(--linie); }
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
@@ -290,9 +305,30 @@
       <div class="kopf"><span class="nr">01</span><h2>Pappe</h2></div>
       <p class="zusammenfassung" data-zusammenfassung></p>
       <div class="inhalt">
-        <p class="frage">Welche Pappen hast du? Größe, Dicke und wie viele Platten davon.</p>
-        <div id="pappen"></div>
-        <button class="textbutton" id="pappe-neu">+ Pappsorte hinzufügen</button>
+        <!-- a) Ich habe schon Pappe -->
+        <div class="inhalt" id="eigene-pappe">
+          <p class="frage">Welche Pappen hast du? Größe, Dicke und wie viele Platten davon.</p>
+          <div id="pappen"></div>
+          <button class="textbutton" id="pappe-neu">+ Pappsorte hinzufügen</button>
+        </div>
+        <!-- b) Ich habe noch keine Pappe → LaserPrep schlägt ein Format vor -->
+        <div class="inhalt" id="vorschlag-pappe" hidden>
+          <p class="frage">Kein Problem: In der Vorschau schlägt LaserPrep dir das handelsübliche Format vor
+            (A4 bis A1, 50 × 70 oder 70 × 100 cm), bei dem am wenigsten Rest übrig bleibt.</p>
+          <div class="feld">
+            <label for="bett-b">Laserbett (mm)</label>
+            <div class="reihe">
+              <input type="number" id="bett-b" value="600" min="50" step="1" aria-label="Laserbett Breite in mm">
+              <span>×</span>
+              <input type="number" id="bett-h" value="450" min="50" step="1" aria-label="Laserbett Höhe in mm">
+            </div>
+          </div>
+          <div class="feld">
+            <label for="vorschlag-dicke">Dicke (mm)</label>
+            <input type="number" id="vorschlag-dicke" value="2" min="0.1" step="0.1">
+          </div>
+        </div>
+        <button class="umschalter" id="pappe-modus">Ich habe noch keine Pappe</button>
         <button class="button weiter">Weiter</button>
       </div>
     </section>
@@ -402,6 +438,7 @@
     <section class="kachel" id="k-vorschau" data-schritt="6">
       <div class="kopf"><span class="nr">07</span><h2>Vorschau</h2><span id="platte-info"></span></div>
       <div class="inhalt">
+        <div class="vorschlag" id="vorschlag" hidden></div>
         <div id="platten"></div>
         <div class="fuss">
           <p id="meldung"></p>
@@ -655,7 +692,9 @@
       const e = einstellungen();
       const kanten = document.getElementById('kanten');
       const texte = [
-        e.pappen.map(p => `${p.anzahl} × ${p.name || 'Pappe'} ${p.breite} × ${p.hoehe} mm · ${runde(p.dicke)} mm`).join(' / '),
+        pappeVorschlagen
+          ? `Noch keine Pappe – Format wird vorgeschlagen (Laserbett ${zahl('bett-b', 600)} × ${zahl('bett-h', 450)} mm, ${runde(zahl('vorschlag-dicke', 2))} mm dick)`
+          : e.pappen.map(p => `${p.anzahl} × ${p.name || 'Pappe'} ${p.breite} × ${p.hoehe} mm · ${runde(p.dicke)} mm`).join(' / '),
         modellGeladen ? `${modellGeladen.name} · ${modellGeladen.anzahl} Bauteile` : 'Noch kein Modell',
         `1:${e.massstab} · CAD in ${e.einheitMm === 1 ? 'mm' : 'm'}`,
         'Standardfarben',
@@ -1044,13 +1083,26 @@
       };
     }
 
+    // „Ich habe noch keine Pappe“: diese handelsüblichen Formate werden ausprobiert (Breite × Höhe in mm)
+    let pappeVorschlagen = false;
+    let vorschlag = null;                    // bester Vorschlag nach der letzten Berechnung
+    const FORMATE = [
+      ['A4', 297, 210], ['A3', 420, 297], ['A2', 594, 420], ['A1', 841, 594],
+      ['50 × 70 cm', 700, 500], ['70 × 100 cm', 1000, 700]
+    ];
+
     function laserNeuBerechnen() {
       const e = einstellungen();
       const faktor = e.einheitMm / e.massstab;       // CAD-Einheit → mm auf der Platte
 
       // Ein Teil für eine bestimmte Pappdicke fertig machen: Kanten anpassen
-      // („ausgleichen“), verkleinern und seine Größe (Rechteck drumherum) bestimmen
+      // („ausgleichen“), verkleinern und seine Größe (Rechteck drumherum) bestimmen.
+      // Das Ergebnis wird pro Dicke gemerkt, weil der Formatvorschlag es oft braucht.
+      const speicher = new Map();
       const teilFuer = (t, dicke) => {
+        if (!speicher.has(dicke)) speicher.set(dicke, new Map());
+        const merk = speicher.get(dicke);
+        if (merk.has(t)) return merk.get(t);
         let zuege = t.zuege, anzahl = 0;
         if (e.kanten === 'ausgleichen') {
           const r = kantenAusgleichen(t, dicke / faktor);   // Dicke in mm → CAD-Einheiten
@@ -1060,62 +1112,110 @@
         const alle = zuege.flat();
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
-        return { name: t.name, zuege, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+        const teil = { name: t.name, zuege, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+        merk.set(t, teil);
+        return teil;
       };
       const passtAuf = (teil, pappe) => teil.b <= pappe.breite - 2 * ABSTAND && teil.h <= pappe.hoehe - 2 * ABSTAND;
-      const massZeigen = (t, teil) => { t.massFeld.textContent = `${runde(teil.b)} × ${runde(teil.h)} mm`; };
 
       const ohneFlaeche = [];
-      let offen = flacheTeile.filter(t => {
+      const start = flacheTeile.filter(t => {
         if (t.zuege.length) return true;
         ohneFlaeche.push(t.name);
-        t.massFeld.textContent = '–';
         return false;
       });
 
-      // Pappsorten der Reihe nach füllen: erst alle Platten der ersten Sorte,
-      // was nicht mehr passt, kommt auf die nächste Sorte. Auf jeder Platte
+      // Teile auf eine Liste von Pappsorten verteilen: erst alle Platten der ersten
+      // Sorte, was nicht mehr passt, kommt auf die nächste Sorte. Auf jeder Platte
       // liegen die Teile zeilenweise nebeneinander, die höchsten zuerst.
-      platten = [];
-      let angepasst = 0;
-      e.pappen.forEach(pappe => {
-        if (!offen.length) return;
-        const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
-        const zuGrossHier = kandidaten.filter(k => !passtAuf(k.teil, pappe));
-        let warten = kandidaten.filter(k => passtAuf(k.teil, pappe)).sort((a, b) => b.teil.h - a.teil.h);
-        for (let nr = 1; nr <= pappe.anzahl && warten.length; nr++) {
-          const platziert = [], uebrig = [];
-          let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
-          warten.forEach(k => {
-            const teil = k.teil;
-            if (x + teil.b > pappe.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
-            if (y + teil.h > pappe.hoehe - ABSTAND) { uebrig.push(k); return; }
-            platziert.push({ teil, x, y });
-            massZeigen(k.t, teil);
-            angepasst += teil.anzahl;
-            x += teil.b + ABSTAND;
-            zeilenHoehe = Math.max(zeilenHoehe, teil.h);
-          });
-          platten.push({ pappe, nr, platziert });
-          warten = uebrig;
+      function verteilen(liste) {
+        const ergebnis = [], lage = new Map();
+        let offen = start, angepasst = 0;
+        liste.forEach(pappe => {
+          if (!offen.length) return;
+          const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
+          const zuGrossHier = kandidaten.filter(k => !passtAuf(k.teil, pappe));
+          let warten = kandidaten.filter(k => passtAuf(k.teil, pappe)).sort((a, b) => b.teil.h - a.teil.h);
+          for (let nr = 1; nr <= pappe.anzahl && warten.length; nr++) {
+            const platziert = [], uebrig = [];
+            let x = ABSTAND, y = ABSTAND, zeilenHoehe = 0;
+            warten.forEach(k => {
+              const teil = k.teil;
+              if (x + teil.b > pappe.breite - ABSTAND) { x = ABSTAND; y += zeilenHoehe + ABSTAND; zeilenHoehe = 0; }
+              if (y + teil.h > pappe.hoehe - ABSTAND) { uebrig.push(k); return; }
+              platziert.push({ teil, x, y });
+              lage.set(k.t, teil);
+              angepasst += teil.anzahl;
+              x += teil.b + ABSTAND;
+              zeilenHoehe = Math.max(zeilenHoehe, teil.h);
+            });
+            ergebnis.push({ pappe, nr, platziert });
+            warten = uebrig;
+          }
+          offen = [...zuGrossHier, ...warten].map(k => k.t);
+        });
+        return { platten: ergebnis, offen, angepasst, lage };
+      }
+
+      // Welche Pappe(n)? Entweder die eigenen – oder das beste handelsübliche Format
+      let liste = e.pappen;
+      vorschlag = null;
+      if (pappeVorschlagen) {
+        const bett = { b: zahl('bett-b', 600), h: zahl('bett-h', 450) };
+        const dicke = zahl('vorschlag-dicke', 2);
+        const ersatz = { name: 'Laserbett', breite: bett.b, hoehe: bett.h, dicke, anzahl: 999 };
+        liste = [ersatz];
+        if (start.length) {
+          for (const [name, w, h] of FORMATE) {
+            for (const [b, hh] of (w === h ? [[w, h]] : [[w, h], [h, w]])) {
+              if (b > bett.b || hh > bett.h) continue;           // passt nicht in den Laser
+              const pappe = { name, breite: b, hoehe: hh, dicke, anzahl: 999 };
+              const r = verteilen([pappe]);
+              if (r.offen.length) continue;                      // ein Teil ist zu groß für dieses Format
+              const n = r.platten.length, flaeche = n * b * hh;
+              // Am wenigsten Pappe insgesamt; bei Gleichstand weniger Platten
+              if (!vorschlag || flaeche < vorschlag.flaeche - 1 || (Math.abs(flaeche - vorschlag.flaeche) <= 1 && n < vorschlag.n)) {
+                vorschlag = { pappe, n, flaeche, r };
+              }
+            }
+          }
+          if (vorschlag) {
+            vorschlag.pappe.anzahl = vorschlag.n;
+            liste = [vorschlag.pappe];
+            const teileFlaeche = [...vorschlag.r.lage.values()].reduce((s, t) => s + t.b * t.h, 0);
+            vorschlag.ausnutzung = Math.round(100 * teileFlaeche / vorschlag.flaeche);
+          }
         }
-        offen = [...zuGrossHier, ...warten].map(k => k.t);
+      }
+
+      const { platten: neu, offen, angepasst, lage } = vorschlag ? vorschlag.r : verteilen(liste);
+      platten = neu;
+      if (pappeVorschlagen && !vorschlag) liste[0].anzahl = Math.max(1, platten.length);   // „Platte 1 von 2“ statt „von 999“
+
+      // Maße in der Bauteilliste
+      flacheTeile.forEach(t => {
+        const teil = lage.get(t) || (t.zuege.length ? teilFuer(t, liste[0].dicke) : null);
+        t.massFeld.textContent = teil ? `${runde(teil.b)} × ${runde(teil.h)} mm` : '–';
       });
 
       // Was übrig bleibt: zu groß für jede Pappe – oder alle Platten sind voll
       const zuGross = [], keinPlatz = [];
       offen.forEach(t => {
-        const passtIrgendwo = e.pappen.some(p => passtAuf(teilFuer(t, p.dicke), p));
+        const passtIrgendwo = liste.some(p => passtAuf(teilFuer(t, p.dicke), p));
         (passtIrgendwo ? keinPlatz : zuGross).push(t.name);
-        massZeigen(t, teilFuer(t, e.pappen[0].dicke));
       });
-      if (!platten.length) platten.push({ pappe: e.pappen[0], nr: 1, platziert: [] });
+      if (!platten.length) platten.push({ pappe: liste[0], nr: 1, platziert: [] });
       platten.forEach(p => { p.svg = svgErzeugen(p.platziert, p.pappe.breite, p.pappe.hoehe); });
 
       // Hinweise
       const anzahlTeile = platten.reduce((s, p) => s + p.platziert.length, 0);
       const meldungen = [];
-      if (zuGross.length) meldungen.push(`Größer als jede Pappe: ${zuGross.join(', ')}. Kleineren Maßstab oder größere Pappe wählen.`);
+      if (pappeVorschlagen && start.length && !vorschlag && !offen.length) {
+        meldungen.push('Kein handelsübliches Format passt ins Laserbett (kleiner als A4?). Die Teile liegen darum auf Platten in Laserbett-Größe.');
+      }
+      if (zuGross.length) meldungen.push(pappeVorschlagen
+        ? `Größer als das Laserbett: ${zuGross.join(', ')}. Kleineren Maßstab wählen.`
+        : `Größer als jede Pappe: ${zuGross.join(', ')}. Kleineren Maßstab oder größere Pappe wählen.`);
       if (keinPlatz.length) meldungen.push(`Kein Platz mehr, alle Platten sind voll: ${keinPlatz.join(', ')}. Bei 01 Pappe die Anzahl erhöhen oder eine Sorte hinzufügen.`);
       if (ohneFlaeche.length) meldungen.push(`Keine Fläche gefunden: ${ohneFlaeche.join(', ')}.`);
       const meldung = document.getElementById('meldung');
@@ -1129,11 +1229,56 @@
         meldung.appendChild(extra);
       }
 
+      vorschlagZeigen();
       vorschauZeichnen();
       document.getElementById('platte-info').textContent =
         `1:${e.massstab} · ${anzahlTeile} von ${flacheTeile.length} Teilen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}`;
       zusammenfassen();
     }
+
+    // Formatvorschlag oben in der Vorschau, mit „Übernehmen“
+    function vorschlagZeigen() {
+      const feld = document.getElementById('vorschlag');
+      feld.hidden = !pappeVorschlagen;
+      if (!pappeVorschlagen) return;
+      feld.innerHTML = '';
+      const text = document.createElement('span');
+      if (!vorschlag) {
+        text.textContent = modellGeladen ? 'Kein Vorschlag möglich – siehe Hinweis unten.'
+          : 'Sobald ein Modell geladen ist, steht hier der Formatvorschlag.';
+        feld.appendChild(text);
+        return;
+      }
+      const p = vorschlag.pappe;
+      text.innerHTML = '<strong></strong> <span class="info"></span>';
+      text.querySelector('strong').textContent = `Vorschlag: ${vorschlag.n} × ${p.name}`;
+      text.querySelector('.info').textContent =
+        `${p.breite} × ${p.hoehe} mm · ${runde(p.dicke)} mm dick · Teile füllen etwa ${vorschlag.ausnutzung} % der Pappe`;
+      const knopf = document.createElement('button');
+      knopf.className = 'textbutton';
+      knopf.textContent = 'Übernehmen';
+      knopf.title = 'Diese Pappe bei 01 Pappe eintragen';
+      knopf.addEventListener('click', () => {
+        pappen.splice(0, pappen.length, { name: p.name, breite: p.breite, hoehe: p.hoehe, dicke: p.dicke, anzahl: vorschlag.n });
+        pappeModusSetzen(false);
+      });
+      feld.append(text, knopf);
+    }
+
+    // Kachel 01 zwischen „eigene Pappe“ und „noch keine Pappe“ umschalten
+    function pappeModusSetzen(vorschlagen) {
+      pappeVorschlagen = vorschlagen;
+      document.getElementById('eigene-pappe').hidden = vorschlagen;
+      document.getElementById('vorschlag-pappe').hidden = !vorschlagen;
+      document.getElementById('pappe-modus').textContent =
+        vorschlagen ? 'Doch eigene Pappe eingeben' : 'Ich habe noch keine Pappe';
+      pappenZeichnen();
+      laserNeuBerechnen();
+    }
+    document.getElementById('pappe-modus').addEventListener('click', () => pappeModusSetzen(!pappeVorschlagen));
+    ['bett-b', 'bett-h', 'vorschlag-dicke'].forEach(id =>
+      document.getElementById(id).addEventListener('input', laserNeuBerechnen)
+    );
 
     function runde(z) { return Math.round(z * 10) / 10; }
 

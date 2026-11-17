@@ -33,6 +33,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 ### Should (wäre gut)
 - [x] Aufbau als Bento-Grid: 7 Schritte nacheinander abfragen (01 Pappe, 02 Datei, 03 Maßstab, 04 Farben, 05 Gehrung, 06 Bauteile, 07 Vorschau)
 - [x] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
+- [x] „Ich habe noch keine Pappe“: LaserPrep schlägt das handelsübliche Format mit dem wenigsten Rest vor (begrenzt aufs Laserbett)
 - [ ] Farben individuell zuordnen (Funktion ↔ Farbe)
 - [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
@@ -168,6 +169,16 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Ansicht erscheint. Läuft bei jedem Öffnen; Klick oder Taste überspringt. Wer im Betriebssystem
   „Bewegung reduzieren“ eingestellt hat, sieht kein Intro. Eigenes kleines Skript, damit das Intro auch
   verschwindet, falls three.js nicht lädt.
+
+- 17.11.: Neuer Button **„Ich habe noch keine Pappe“** in Kachel 01. Statt der Pappsorten gibt man dann nur
+  die Größe des Laserbetts (Standard 600 × 450 mm) und die Pappdicke ein. In der Vorschau probiert LaserPrep die
+  handelsüblichen Formate A4, A3, A2, A1, 50 × 70 und 70 × 100 cm (beide Ausrichtungen, nur was ins Laserbett passt)
+  und schlägt das vor, bei dem insgesamt am wenigsten Pappe gebraucht wird (bei Gleichstand: weniger Platten),
+  z. B. „Vorschlag: 1 × A3 · Teile füllen etwa 34 % der Pappe“. „Übernehmen“ trägt den Vorschlag als eigene
+  Pappe ein. Getestet mit dem Testhaus: 1:50 → 1 × A3, 1:100 → 1 × A4, 1:25 → 1 × A2, Laserbett 300 × 220 bei 1:30
+  → 5 × A4; zu große Teile oder zu kleines Laserbett werden gemeldet. „stumpf“ mit eigener Pappe unverändert.
+  Hinweis: Die Ausnutzung ist noch niedrig, weil die Teile nur zeilenweise liegen – platzsparendes Anordnen
+  verbessert später auch den Vorschlag.
 
 ## Nächste Schritte
 1. Farben individuell zuordnen (Kachel 04).
