@@ -248,7 +248,17 @@
     .platte .bild svg { width: 100%; height: auto; max-height: 60vh; display: block; }
     /* In der Vorschau Linien sichtbar dicker zeichnen – in der Datei bleiben sie Haarlinien */
     .platte svg rect { fill: #f7f7f7; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-    .platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    .platte svg path { stroke-width: 1px; vector-effect: non-scaling-stroke; transition: opacity 0.15s, fill 0.15s; }
+    /* Hervorheben mit der Maus: ganzes Teil reagiert, der Rest wird blass */
+    .platte svg path.teil { pointer-events: all; cursor: pointer; }
+    .platte svg.hervor path:not(.aktiv-teil), .platte svg.hervor .beschriftung:not(.aktiv-teil) { opacity: 0.15; }
+    .platte svg path.teil.aktiv-teil { fill: rgba(255, 106, 0, 0.12); stroke-width: 2px; }
+    .platte svg .beschriftung {
+      fill: #888; font-family: "Space Grotesk", Arial, sans-serif; font-weight: 500;
+      text-anchor: middle; dominant-baseline: middle; pointer-events: none; transition: opacity 0.15s;
+    }
+    .platte svg .beschriftung.aktiv-teil { fill: var(--text); font-weight: 700; }
+    #teile li.aktiv-teil { color: var(--akzent); }
     .button.zweit { background: #fff; color: var(--akzent); box-shadow: inset 0 0 0 2px var(--akzent); }
     .button.zweit:hover { background: rgba(255, 106, 0, 0.06); }
     .klein-button { padding: 4px 12px; font-size: 12px; }
@@ -743,12 +753,13 @@
         mass.className = 'mass';
         li.appendChild(mass);
         // Mit der Maus über den Namen fahren → Bauteil leuchtet orange
-        li.addEventListener('mouseenter', () => teil.material.color.set(AKZENT));
-        li.addEventListener('mouseleave', () => teil.material.color.set(0xeeeeee));
+        // (zeigt es auch in der Vorschau auf der Pappe)
+        li.addEventListener('mouseenter', () => hervorheben(i));
+        li.addEventListener('mouseleave', () => hervorheben(null));
         liste.appendChild(li);
         // Bauteil flach legen (einmal pro Modell, in CAD-Einheiten)
         const flach = flachLegen(teil.geometry);
-        flacheTeile.push({ name, flach, zuege: flach ? flach.zuege : [], massFeld: mass });
+        flacheTeile.push({ name, nr: i + 1, mesh: teil, li, flach, zuege: flach ? flach.zuege : [], massFeld: mass });
       });
       // Herausfinden, welche Kanten an ein anderes Bauteil stoßen (für „Materialstärke ausgleichen“)
       stoesseFinden(bauteile, flacheTeile);
@@ -1576,6 +1587,7 @@
 
     // Jede Platte als eigene Karte in der Vorschau, mit eigenem Download
     function vorschauZeichnen() {
+      if (hervorgehoben !== null) hervorheben(null);   // neu gezeichnet → Hervorhebung zurücksetzen
       const ort = document.getElementById('platten');
       ort.innerHTML = '';
       platten.forEach(p => {
@@ -1589,10 +1601,75 @@
         karte.querySelector('.bild').innerHTML = p.svg.replace(/^<\?xml[^>]*>\s*/, '');
         karte.querySelector('button').addEventListener('click', () => svgHerunterladen(p));
         ort.appendChild(karte);
+        teileBeschriften(karte.querySelector('.bild svg'), p);
       });
       document.getElementById('herunterladen').textContent =
         platten.length === 1 ? 'SVG herunterladen' : `Alle ${platten.length} Platten herunterladen`;
     }
+
+    // Nur in der Vorschau (nicht in der Laserdatei): jedes Teil bekommt Nummer + Name,
+    // und jedes Teil weiß, zu welchem Bauteil es gehört (zum Hervorheben mit der Maus)
+    function teileBeschriften(svg, p) {
+      const [schnitt, ritz] = svg.querySelectorAll('g');
+      const schnittPfade = schnitt ? [...schnitt.querySelectorAll('path')] : [];
+      const ritzPfade = ritz ? [...ritz.querySelectorAll('path')] : [];
+      let ri = 0;
+      p.platziert.forEach(({ teil, x, y, quelle }, i) => {
+        const pfad = schnittPfade[i];
+        if (!pfad || !quelle) return;
+        const nr = quelle.t.nr;
+        pfad.dataset.nr = nr;
+        pfad.classList.add('teil');
+        if (teil.ritzen && teil.ritzen.length && ritzPfade[ri]) ritzPfade[ri++].dataset.nr = nr;
+        // Beschriftung in die Mitte des Außenumrisses (Schwerpunkt), Größe passend zum Teil
+        const z = teil.zuege[teil.ai ?? aussenIndex(teil.zuege)].map(([px, py]) => [x + px - teil.minX, y + teil.maxY - py]);
+        let A = 0, cx = 0, cy = 0;
+        z.forEach(([x1, y1], k) => { const [x2, y2] = z[(k + 1) % z.length]; const c = x1 * y2 - x2 * y1; A += c; cx += (x1 + x2) * c; cy += (y1 + y2) * c; });
+        if (Math.abs(A) < 1e-9) return;
+        cx /= 3 * A; cy /= 3 * A;
+        const nummer = String(nr).padStart(2, '0');
+        let text = `${nummer} ${quelle.t.name}`;
+        let groesse = Math.min(teil.h * 0.3, teil.b * 0.9 / (0.58 * text.length), 14);
+        if (groesse < 3) { text = nummer; groesse = Math.min(teil.h * 0.4, teil.b * 0.9 / (0.58 * 2), 14); }
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', cx); t.setAttribute('y', cy);
+        t.setAttribute('font-size', Math.max(groesse, 1.5));
+        t.setAttribute('class', 'beschriftung');
+        t.dataset.nr = nr;
+        t.textContent = text;
+        svg.appendChild(t);
+      });
+    }
+
+    // ---------- 6c. Ein Bauteil hervorheben (Vorschau, Bauteilliste und 3D-Modell) ----------
+    // nr = Nummer aus der Bauteilliste (1, 2, …) oder null = nichts hervorheben
+    let hervorgehoben = null;
+    function hervorheben(index) {
+      const nr = index === null ? null : index + 1;
+      if (nr === hervorgehoben) return;
+      hervorgehoben = nr;
+      document.querySelectorAll('.platte svg').forEach(svg => {
+        svg.classList.toggle('hervor', nr !== null);
+        svg.querySelectorAll('[data-nr]').forEach(el => el.classList.toggle('aktiv-teil', Number(el.dataset.nr) === nr));
+      });
+      flacheTeile.forEach(t => {
+        const aktiv = t.nr === nr;
+        t.li.classList.toggle('aktiv-teil', aktiv);
+        // 3D: das Bauteil leuchtet orange, alle anderen werden durchsichtig
+        const m = t.mesh.material;
+        m.color.set(aktiv ? AKZENT : 0xeeeeee);
+        m.transparent = nr !== null && !aktiv;
+        m.opacity = m.transparent ? 0.18 : 1;
+        m.depthWrite = !m.transparent;
+        m.needsUpdate = true;
+      });
+    }
+    // Maus über einem Teil in der Vorschau
+    document.getElementById('platten').addEventListener('mouseover', ev => {
+      const el = ev.target.closest('[data-nr]');
+      hervorheben(el ? Number(el.dataset.nr) - 1 : null);
+    });
+    document.getElementById('platten').addEventListener('mouseleave', () => hervorheben(null));
 
     // ---------- 6b. Laser-Farben (Kachel 04: Funktion ↔ Farbe) ----------
     // Jede Funktion bekommt eine Farbe. Standard nach unserer Konvention; eigene Farben

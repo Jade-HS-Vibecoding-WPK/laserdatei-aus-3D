@@ -36,7 +36,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] „Ich habe noch keine Pappe“: LaserPrep schlägt das handelsübliche Format mit dem wenigsten Rest vor (begrenzt aufs Laserbett)
 - [x] Farben individuell zuordnen (Funktion ↔ Farbe)
 - [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
-- [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört)
+- [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört) *(teilweise: Nummer + Name in der Vorschau, Hervorheben im 3D-Modell; Gravur in der Datei bewusst nicht)*
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
 
@@ -211,6 +211,13 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet mit dem Walmdach-Haus (1:50): alle 10 Teile auf einer Platte, Trapeze gedreht nebeneinander; der
   Formatvorschlag nutzt die Pappe jetzt zu etwa 51 % statt 34 %. Rechenzeit etwa 10 ms pro Neuberechnung.
   Hinweis: Die Anordnung ändert sich dadurch auch bei „stumpf“ (andere Lage der Teile, gleiche Umrisse).
+
+- 17.11.: **Teile in der Vorschau erkennen**: Jedes Teil auf der Pappe trägt seine Nummer und seinen Namen
+  (z. B. „07 Dachflaeche_Sued“, bei kleinen Teilen nur „07“, Nummer wie in der Bauteilliste). Der Schriftzug steht
+  nur in der Vorschau, nicht in der Laserdatei (so gewünscht). Fährt man mit der Maus über ein Teil, wird es orange
+  hinterlegt, alle anderen Teile werden blass; gleichzeitig leuchtet das Bauteil im 3D-Modell orange, der Rest des
+  Hauses wird durchsichtig, und der Name in der Bauteilliste wird orange. Umgekehrt zeigt die Maus auf einem Namen
+  in der Bauteilliste das Teil auch in der Vorschau. Getestet mit dem Walmdach-Haus.
 
 ## Nächste Schritte
 1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
