@@ -530,9 +530,9 @@
             </svg>
             <span class="text">Blaue Anritzlinie zeigt, bis wohin du die Kante schräg abschleifst – die Ecke wird sauber 45°.</span>
           </label>
-          <label class="variante gesperrt-variante">
-            <input type="radio" name="kanten-wahl" value="auffalten" disabled>
-            <span class="variante-kopf"><strong>Auffalten</strong><span class="marke">kommt bald</span></span>
+          <label class="variante">
+            <input type="radio" name="kanten-wahl" value="auffalten">
+            <span class="variante-kopf"><strong>Auffalten</strong><span class="marke"></span></span>
             <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
               <path class="schnitt" d="M10 12 H18 V62 H80 V70 H10 Z"/>
               <line class="r" x1="18" y1="62" x2="13" y2="67"/>
@@ -873,7 +873,9 @@
       document.getElementById('kanten-hilfe').textContent = {
         ausgleichen: 'Die größere Platte läuft durch, die kleinere wird um die Dicke ihrer Pappe (aus 01 Pappe) gekürzt – außen ist alles bündig.',
         gehrung: 'Alle Platten gehen bis zur Außenkante. Die blaue Linie liegt auf der Innenseite: von ihr bis zur Kante schräg abschleifen ' +
-          '(bei rechten Winkeln 45°). Die Teile sind so gespiegelt, dass die angeritzte Seite nach innen kommt.'
+          '(bei rechten Winkeln 45°). Die Teile sind so gespiegelt, dass die angeritzte Seite nach innen kommt.',
+        auffalten: 'Teile derselben Gruppe (06 Auswahl), die an einer Ecke zusammenstoßen, bleiben ein Stück. An der blauen Linie ' +
+          'anritzen und knicken. Würde sich das Netz überlappen oder nicht auf die Pappe passen, wird dort geschnitten statt geknickt.'
       }[e.kanten] || 'Die Teile werden so ausgeschnitten, wie sie im Modell flach liegen.';
     }
 
@@ -1110,8 +1112,10 @@
             if (!bester || faktor > bester.faktor) {
               const m2 = [m.dot(B.flach.u), m.dot(B.flach.v)];
               const l = Math.hypot(m2[0], m2[1]);
+              // a = Nummer des Nachbarteils, D2 = Richtung der Ecklinie in 2D (fürs Auffalten)
               bester = { X2: [X.dot(B.flach.u), X.dot(B.flach.v)], m2: [m2[0] / l, m2[1] / l],
-                         faktor, phi, mit: A.teil.name, winkel: Math.round(phi * 180 / Math.PI) };
+                         faktor, phi, mit: A.teil.name, winkel: Math.round(phi * 180 / Math.PI),
+                         a, D2: [D.dot(B.flach.u), D.dot(B.flach.v)] };
             }
           });
           B.teil.stoesse[k] = bester;
@@ -1229,7 +1233,7 @@
         const q = z[(k + 1) % n], s = teil.stoesse[k];
         if (!s) return { p, d: [q[0] - p[0], q[1] - p[1]], fest: true };
         anzahl++;
-        const a = abstand(s);
+        const a = abstand(s, k);
         return { p: [s.X2[0] + s.m2[0] * a, s.X2[1] + s.m2[1] * a], d: [-s.m2[1], s.m2[0]], fest: false };
       });
       const neu = z.map((p, i) => {
@@ -1246,6 +1250,237 @@
         return [l1.p[0] + t * l1.d[0], l1.p[1] + t * l1.d[1]];
       });
       return { umriss: neu, anzahl };
+    }
+
+    // ---------- 5f. Auffalten ----------
+    // Idee: Teile derselben Gruppe (Kachel 06), die an einer Ecke zusammenstoßen, bleiben ein Stück.
+    // An einer Faltkante gehen beide Platten bis zur äußeren Ecklinie (kein Versatz). Dann wird das
+    // Nachbarteil um diese Linie in die Ebene des ersten Teils geklappt – wie beim Aufklappen einer
+    // Schachtel. Die Faltkante wird blau angeritzt, alle anderen Stöße werden geschnitten wie bei
+    // „Materialstärke ausgleichen“ (damit das Modell an den Schnittkanten trotzdem schließt).
+    // Die längsten gemeinsamen Kanten werden zuerst gefaltet. Würde ein Knick dazu führen, dass das
+    // Netz sich selbst überlappt oder nicht mehr auf die Pappe passt, wird dort geschnitten statt geknickt.
+
+    // Mögliche Faltkanten innerhalb einer Gruppe: je Nachbarpaar die längste gemeinsame Kante
+    function faltKandidaten(glieder) {
+      const stelle = new Map(glieder.map((t, i) => [t.nr - 1, i]));
+      const verlaengert = glieder.map(t => (t.aussen < 0 ? null : umrissVerschieben(t, () => 0).umriss));
+      // Lage der Kante k entlang der Ecklinie (von X aus in Richtung D2 gemessen)
+      const intervall = (i, k) => {
+        const z = verlaengert[i], s = glieder[i].stoesse[k];
+        const w = [z[k], z[(k + 1) % z.length]].map(p => (p[0] - s.X2[0]) * s.D2[0] + (p[1] - s.X2[1]) * s.D2[1]);
+        return [Math.min(...w), Math.max(...w)];
+      };
+      const paare = new Map();
+      glieder.forEach((B, b) => {
+        if (!verlaengert[b]) return;
+        B.stoesse.forEach((s, k) => {
+          const a = s ? stelle.get(s.a) : undefined;
+          if (a === undefined || a === b || !verlaengert[a]) return;
+          const [b0, b1] = intervall(b, k);
+          glieder[a].stoesse.forEach((s2, k2) => {
+            if (!s2 || s2.a !== B.nr - 1) return;
+            // Beim Nachbarn zeigt die Ecklinie in die Gegenrichtung → Vorzeichen drehen
+            const [a0, a1] = intervall(a, k2);
+            const laenge = Math.min(b1, -a0) - Math.max(b0, -a1);
+            if (laenge <= 0) return;
+            const schluessel = Math.min(a, b) + '|' + Math.max(a, b);
+            if (!paare.has(schluessel) || paare.get(schluessel).laenge < laenge) paare.set(schluessel, { b, k, a, k2, laenge });
+          });
+        });
+      });
+      return [...paare.values()].sort((p, q) => q.laenge - p.laenge);
+    }
+
+    // Ein Netz aus den Teilen „mitglieder“ (Nummern in glieder) mit den Faltkanten „falten“ bauen.
+    // dicke in CAD-Einheiten. Ergebnis in der Ebene des größten Teils:
+    // zuege (Außenkontur + Löcher), ritzen (Knicklinien), formen (jedes Teil einzeln, zum Prüfen)
+    function netzBauen(glieder, mitglieder, falten, dicke) {
+      const gefaltet = new Map(mitglieder.map(i => [i, new Set()]));
+      falten.forEach(f => { gefaltet.get(f.b).add(f.k); gefaltet.get(f.a).add(f.k2); });
+      const umriss = new Map();
+      mitglieder.forEach(i => {
+        const t = glieder[i];
+        umriss.set(i, t.aussen < 0 ? t.zuege[aussenIndex(t.zuege)]
+          : umrissVerschieben(t, (s, k) => (gefaltet.get(i).has(k) ? 0 : s.faktor * dicke)).umriss);
+      });
+      const alle = [...umriss.values()].flat();
+      const diag = Math.hypot(Math.max(...alle.map(p => p[0])) - Math.min(...alle.map(p => p[0])),
+                              Math.max(...alle.map(p => p[1])) - Math.min(...alle.map(p => p[1]))) || 1;
+      const tol = diag * 1e-6;
+
+      // a) Vom größten Teil aus jedes Nachbarteil um die gemeinsame Ecklinie herüberklappen.
+      //    Ein Punkt im Nachbarteil C hat dort die Lage s (entlang der Linie) und t (Abstand von
+      //    der Linie). Nach dem Aufklappen liegt er im Teil P bei gleichem s, aber auf der anderen Seite.
+      const wurzel = mitglieder.reduce((m, i) => (glieder[i].flach.flaeche > glieder[m].flach.flaeche ? i : m));
+      const abb = new Map([[wurzel, p => p]]);
+      const offen = [wurzel], linien = [];
+      while (offen.length) {
+        const P = offen.shift();
+        for (const f of falten) {
+          let C, kP, kC;
+          if (f.b === P && !abb.has(f.a)) { C = f.a; kP = f.k; kC = f.k2; }
+          else if (f.a === P && !abb.has(f.b)) { C = f.b; kP = f.k2; kC = f.k; }
+          else continue;
+          const sP = glieder[P].stoesse[kP], sC = glieder[C].stoesse[kC], fP = abb.get(P);
+          const fC = p => {
+            const dx = p[0] - sC.X2[0], dy = p[1] - sC.X2[1];
+            const s = dx * sC.D2[0] + dy * sC.D2[1], t = dx * sC.m2[0] + dy * sC.m2[1];
+            return fP([sP.X2[0] - s * sP.D2[0] - t * sP.m2[0], sP.X2[1] - s * sP.D2[1] - t * sP.m2[1]]);
+          };
+          abb.set(C, fC);
+          // Knicklinie = der Teil der Ecklinie, an dem beide Teile anliegen
+          const zP = umriss.get(P), zC = umriss.get(C);
+          const [p0, p1] = [zP[kP], zP[(kP + 1) % zP.length]].map(fP);
+          const [c0, c1] = [zC[kC], zC[(kC + 1) % zC.length]].map(fC);
+          const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+          const e = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L];
+          const lage = q => (q[0] - p0[0]) * e[0] + (q[1] - p0[1]) * e[1];
+          const lo = Math.max(0, Math.min(lage(c0), lage(c1))), hi = Math.min(L, Math.max(lage(c0), lage(c1)));
+          if (hi - lo > tol) linien.push({ F0: [p0[0] + lo * e[0], p0[1] + lo * e[1]], F1: [p0[0] + hi * e[0], p0[1] + hi * e[1]] });
+          offen.push(C);
+        }
+      }
+
+      // b) Alle Umrisskanten sammeln und die Knickstrecken herausnehmen (dort wird nicht geschnitten)
+      const formen = mitglieder.map(i => umriss.get(i).map(abb.get(i)));
+      let stuecke = [];
+      formen.forEach(z => z.forEach((p, k) => stuecke.push([p, z[(k + 1) % z.length]])));
+      for (const { F0, F1 } of linien) {
+        const L = Math.hypot(F1[0] - F0[0], F1[1] - F0[1]);
+        const e = [(F1[0] - F0[0]) / L, (F1[1] - F0[1]) / L];
+        const quer = r => Math.abs((r[0] - F0[0]) * e[1] - (r[1] - F0[1]) * e[0]);
+        const lage = r => (r[0] - F0[0]) * e[0] + (r[1] - F0[1]) * e[1];
+        const neu = [];
+        for (const [p, q] of stuecke) {
+          const tp = lage(p), tq = lage(q);
+          if (quer(p) > tol * 10 || quer(q) > tol * 10 || Math.max(tp, tq) <= tol || Math.min(tp, tq) >= L - tol) { neu.push([p, q]); continue; }
+          const [anfang, ende] = tp < tq ? [p, q] : [q, p];
+          if (Math.min(tp, tq) < -tol) neu.push([anfang, F0]);
+          if (Math.max(tp, tq) > L + tol) neu.push([F1, ende]);
+        }
+        stuecke = neu;
+      }
+
+      // c) Die übrigen Kanten zu geschlossenen Linienzügen verketten
+      const punkte = [];
+      const nummer = p => {
+        for (let i = 0; i < punkte.length; i++) if (Math.abs(punkte[i][0] - p[0]) <= tol * 10 && Math.abs(punkte[i][1] - p[1]) <= tol * 10) return i;
+        punkte.push(p);
+        return punkte.length - 1;
+      };
+      const kanten = [], an = new Map();
+      for (const [p, q] of stuecke) {
+        const a = nummer(p), b = nummer(q);
+        if (a === b) continue;
+        kanten.push([a, b]);
+        for (const x of [a, b]) { if (!an.has(x)) an.set(x, []); an.get(x).push(kanten.length - 1); }
+      }
+      const benutzt = kanten.map(() => false), zuege = [];
+      kanten.forEach(([a, b], start) => {
+        if (benutzt[start]) return;
+        benutzt[start] = true;
+        const zug = [a];
+        let jetzt = b;
+        while (jetzt !== a) {
+          zug.push(jetzt);
+          const naechste = an.get(jetzt).find(j => !benutzt[j]);
+          if (naechste === undefined) break;
+          benutzt[naechste] = true;
+          jetzt = kanten[naechste][0] === jetzt ? kanten[naechste][1] : kanten[naechste][0];
+        }
+        if (jetzt === a && zug.length >= 3) {
+          const z = geradePunkteEntfernen(zug.map(i => punkte[i].slice()), tol * 10);
+          if (z.length >= 3) zuege.push(z);
+        }
+      });
+      // d) Löcher (Fenster, Türen) jedes Teils kommen mit
+      mitglieder.forEach(i => {
+        const t = glieder[i], ai = t.aussen < 0 ? aussenIndex(t.zuege) : t.aussen;
+        t.zuege.forEach((z, k) => { if (k !== ai) zuege.push(z.map(abb.get(i))); });
+      });
+      return { zuege, ritzen: linien.map(l => [l.F0, l.F1]), formen, tol };
+    }
+
+    // Überlappen sich zwei Teile im Netz? Wie bei der Prüfhilfe ueberlappungen(): Kanten, die sich
+    // echt kreuzen, oder ein Punkt des einen Teils im Inneren des anderen. Teile, die sich nur an der
+    // Knicklinie oder in einer Ecke berühren, zählen nicht.
+    function netzUeberlappt(formen, tol) {
+      const kreuzen = (p, q, a, b) => {
+        const kr = (o, s, t) => ((s[0] - o[0]) * (t[1] - o[1]) - (s[1] - o[1]) * (t[0] - o[0]));
+        const lpq = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, lab = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const d1 = kr(p, q, a) / lpq, d2 = kr(p, q, b) / lpq, d3 = kr(a, b, p) / lab, d4 = kr(a, b, q) / lab;
+        return Math.min(Math.abs(d1), Math.abs(d2), Math.abs(d3), Math.abs(d4)) > tol && (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+      };
+      const innen = (pt, z) => {
+        let drin = false;
+        for (let i = 0, j = z.length - 1; i < z.length; j = i++) {
+          const [xi, yi] = z[i], [xj, yj] = z[j];
+          if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) drin = !drin;
+        }
+        return drin;
+      };
+      const randAbstand = (pt, z) => Math.min(...z.map((s, i) => {
+        const t = z[(i + 1) % z.length], dx = t[0] - s[0], dy = t[1] - s[1], l = dx * dx + dy * dy;
+        const k = l ? Math.max(0, Math.min(1, ((pt[0] - s[0]) * dx + (pt[1] - s[1]) * dy) / l)) : 0;
+        return Math.hypot(pt[0] - s[0] - k * dx, pt[1] - s[1] - k * dy);
+      }));
+      // Prüfpunkte eines Teils: Kantenmitten und ein Punkt sicher im Inneren
+      const proben = z => {
+        const p = z.map((s, i) => [(s[0] + z[(i + 1) % z.length][0]) / 2, (s[1] + z[(i + 1) % z.length][1]) / 2]);
+        for (let i = 1; i + 1 < z.length; i++) {
+          const m = [(z[0][0] + z[i][0] + z[i + 1][0]) / 3, (z[0][1] + z[i][1] + z[i + 1][1]) / 3];
+          if (innen(m, z)) { p.push(m); break; }
+        }
+        return p;
+      };
+      const kasten = z => [Math.min(...z.map(p => p[0])), Math.max(...z.map(p => p[0])), Math.min(...z.map(p => p[1])), Math.max(...z.map(p => p[1]))];
+      const kaesten = formen.map(kasten);
+      for (let i = 0; i < formen.length; i++) for (let j = i + 1; j < formen.length; j++) {
+        const A = formen[i], B = formen[j], ka = kaesten[i], kb = kaesten[j];
+        if (ka[0] > kb[1] - tol || kb[0] > ka[1] - tol || ka[2] > kb[3] - tol || kb[2] > ka[3] - tol) continue;
+        for (let a = 0; a < A.length; a++) for (let b = 0; b < B.length; b++) {
+          if (kreuzen(A[a], A[(a + 1) % A.length], B[b], B[(b + 1) % B.length])) return true;
+        }
+        if (proben(A).some(p => innen(p, B) && randAbstand(p, B) > tol * 10)) return true;
+        if (proben(B).some(p => innen(p, A) && randAbstand(p, A) > tol * 10)) return true;
+      }
+      return false;
+    }
+
+    // Die gewählten Teile zu Netzen zusammenfassen – immer nur innerhalb einer Gruppe.
+    // passt(zuege) sagt, ob ein Netz (in CAD-Einheiten) auf eine der Pappen passt.
+    function netzeBilden(teile, dicke, passt) {
+      const einheiten = [], nachGruppe = new Map();
+      let geteilt = 0;
+      teile.forEach(t => {
+        if (!nachGruppe.has(t.gruppe)) nachGruppe.set(t.gruppe, []);
+        nachGruppe.get(t.gruppe).push(t);
+      });
+      for (const [gruppe, glieder] of nachGruppe) {
+        const chef = glieder.map((_, i) => i);
+        const finde = i => (chef[i] === i ? i : (chef[i] = finde(chef[i])));
+        const mit = glieder.map((_, i) => [i]), falten = glieder.map(() => []);
+        for (const f of faltKandidaten(glieder)) {
+          const ra = finde(f.a), rb = finde(f.b);
+          if (ra === rb) continue;                 // würde einen Ring schließen → hier wird geschnitten
+          const mitglieder = [...mit[ra], ...mit[rb]], fs = [...falten[ra], ...falten[rb], f];
+          const netz = netzBauen(glieder, mitglieder, fs, dicke);
+          if (!netz.zuege.length || netzUeberlappt(netz.formen, netz.tol) || !passt(netz.zuege)) { geteilt++; continue; }
+          chef[ra] = rb; mit[rb] = mitglieder; falten[rb] = fs;
+        }
+        const gruppenName = (GRUPPEN.find(g => g.id === gruppe) || { name: 'Teile' }).name;
+        glieder.forEach((_, i) => {
+          if (finde(i) !== i) return;
+          const ms = mit[i].sort((x, y) => glieder[x].nr - glieder[y].nr);
+          const nrs = ms.map(j => glieder[j].nr);
+          einheiten.push({ name: ms.length > 1 ? `Netz ${gruppenName} (${ms.length} Teile)` : glieder[ms[0]].name,
+            nr: nrs[0], nrs, netz: true, glieder, mitglieder: ms, falten: falten[i], zuege: glieder[ms[0]].zuege });
+        });
+      }
+      einheiten.sort((a, b) => a.nr - b.nr);
+      einheiten.geteilt = geteilt;
+      return einheiten;
     }
 
     // Punkte, die mitten auf einer geraden Linie liegen, braucht der Laser nicht
@@ -1272,6 +1507,7 @@
     let flacheTeile = [];
     let dateiBasis = 'laserdatei';
     let platten = [];                        // fertige Platten: { pappe, nr, platziert, svg }
+    let netzVon = new Map();                 // Auffalten: Teilnummer → Nummern aller Teile im selben Netz
     // Abstand zwischen den Teilen und zum Plattenrand in mm (Feld in Kachel 07, Standard 5 mm)
     function abstandMm() {
       const w = parseFloat(document.getElementById('abstand').value);
@@ -1561,7 +1797,10 @@
         const merk = speicher.get(dicke);
         if (merk.has(t)) return merk.get(t);
         let zuege = t.zuege, ritzen = [], anzahl = 0;
-        if (e.kanten === 'ausgleichen') {
+        if (t.netz) {                                    // „Auffalten“: ein Netz aus mehreren Teilen
+          const r = netzBauen(t.glieder, t.mitglieder, t.falten, dicke / faktor);
+          zuege = r.zuege; ritzen = r.ritzen; anzahl = t.falten.length;
+        } else if (e.kanten === 'ausgleichen') {
           const r = kantenAusgleichen(t, dicke / faktor);   // Dicke in mm → CAD-Einheiten
           zuege = r.zuege; anzahl = r.anzahl;
         } else if (e.kanten === 'gehrung') {
@@ -1577,6 +1816,7 @@
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
         const teil = { name: t.name, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+        if (t.nrs && t.nrs.length > 1) teil.nrs = t.nrs;
         merk.set(t, teil);
         return teil;
       };
@@ -1585,12 +1825,30 @@
       const passtAuf = (teil, pappe) => drehungen(teil).some(v => v.b <= pappe.breite - 2 * rand && v.h <= pappe.hoehe - 2 * rand);
 
       const ohneFlaeche = [];
-      const start = flacheTeile.filter(t => {
+      const gewaehlt = flacheTeile.filter(t => {
         if (t.gewaehlt === false) return false;          // in Kachel 06 abgewählt
         if (t.zuege.length) return true;
         ohneFlaeche.push(t.name);
         return false;
       });
+      // „Auffalten“: Teile einer Gruppe zu Netzen zusammenfassen (5f). Ein Netz muss auf eine
+      // der Pappen passen (bzw. ins Laserbett, wenn LaserPrep das Format vorschlägt).
+      let start = gewaehlt;
+      const einheitVon = new Map();
+      netzVon = new Map();
+      if (e.kanten === 'auffalten') {
+        const ziel = pappeVorschlagen
+          ? [{ breite: zahl('bett-b', 600), hoehe: zahl('bett-h', 450), dicke: zahl('vorschlag-dicke', 2) }] : e.pappen;
+        const passt = zuege => {
+          const teil = { zuege: zuege.map(z => z.map(([x, y]) => [x * faktor, y * faktor])) };
+          return ziel.some(p => passtAuf(teil, p));
+        };
+        start = netzeBilden(gewaehlt, ziel[0].dicke / faktor, passt);
+        start.forEach(u => u.mitglieder.forEach(j => {
+          einheitVon.set(u.glieder[j], u);
+          if (u.nrs.length > 1) netzVon.set(u.glieder[j].nr, u.nrs);
+        }));
+      }
 
       // Teile auf eine Liste von Pappsorten verteilen: erst alle Platten der ersten
       // Sorte, was nicht mehr passt, kommt auf die nächste Sorte. Auf jeder Platte
@@ -1603,7 +1861,11 @@
           const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
           const { tafeln, uebrig } = packen(kandidaten, pappe, rand);
           tafeln.forEach((tafel, i) => {
-            tafel.platziert.forEach(({ quelle }) => { lage.set(quelle.t, quelle.teil); angepasst += quelle.teil.anzahl; });
+            tafel.platziert.forEach(({ quelle }) => {
+              lage.set(quelle.t, quelle.teil);
+              (quelle.t.mitglieder || []).forEach(j => lage.set(quelle.t.glieder[j], quelle.teil));   // Teile im Netz
+              angepasst += quelle.teil.anzahl;
+            });
             ergebnis.push({ pappe, nr: i + 1, platziert: tafel.platziert });
           });
           offen = uebrig.map(k => k.t);
@@ -1636,7 +1898,7 @@
           if (vorschlag) {
             vorschlag.pappe.anzahl = vorschlag.n;
             liste = [vorschlag.pappe];
-            const teileFlaeche = [...vorschlag.r.lage.values()].reduce((s, t) => s + t.b * t.h, 0);
+            const teileFlaeche = [...new Set(vorschlag.r.lage.values())].reduce((s, t) => s + t.b * t.h, 0);   // Netz nur einmal zählen
             vorschlag.ausnutzung = Math.round(100 * teileFlaeche / vorschlag.flaeche);
           }
         }
@@ -1648,8 +1910,9 @@
 
       // Maße in der Bauteilliste
       flacheTeile.forEach(t => {
-        const teil = lage.get(t) || (t.zuege.length ? teilFuer(t, liste[0].dicke) : null);
-        t.massFeld.textContent = t.gewaehlt === false ? 'nicht gelasert' : teil ? `${runde(teil.b)} × ${runde(teil.h)} mm` : '–';
+        const teil = lage.get(t) || (t.zuege.length ? teilFuer(einheitVon.get(t) || t, liste[0].dicke) : null);
+        t.massFeld.textContent = t.gewaehlt === false ? 'nicht gelasert'
+          : teil ? `${runde(teil.b)} × ${runde(teil.h)} mm${teil.nrs ? ' (Netz)' : ''}` : '–';
         t.li.classList.toggle('abgewaehlt', t.gewaehlt === false);
       });
 
@@ -1683,6 +1946,14 @@
         extra.textContent = e.kanten === 'ausgleichen'
           ? ` ${angepasst} Stoßkanten an die Pappdicke angepasst.`
           : ` ${angepasst} Gehrungskanten angeritzt – die angeritzte Seite ist die Innenseite.`;
+        meldung.appendChild(extra);
+      } else if (e.kanten === 'auffalten') {
+        const netze = start.filter(u => u.nrs.length > 1).length;
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--grau)';
+        extra.textContent = (netze ? ` ${netze === 1 ? '1 Netz' : netze + ' Netze'} mit ${angepasst === 1 ? '1 Knick' : angepasst + ' Knicken'} (blau anritzen und falten).`
+          : ' Kein Netz – alle Teile werden einzeln ausgeschnitten.') +
+          (start.geteilt ? ` ${start.geteilt === 1 ? '1 Kante wird' : start.geteilt + ' Kanten werden'} geschnitten statt geknickt, damit nichts überlappt und alles auf die Pappe passt.` : '');
         meldung.appendChild(extra);
       }
 
@@ -1773,19 +2044,25 @@
         const pfad = schnittPfade[i];
         if (!pfad || !quelle) return;
         const nr = quelle.t.nr;
+        const nrs = quelle.t.nrs && quelle.t.nrs.length > 1 ? quelle.t.nrs.join(' ') : null;   // Netz aus mehreren Teilen
         pfad.dataset.nr = nr;
+        if (nrs) pfad.dataset.nrs = nrs;
         pfad.classList.add('teil');
-        if (teil.ritzen && teil.ritzen.length && ritzPfade[ri]) ritzPfade[ri++].dataset.nr = nr;
+        if (teil.ritzen && teil.ritzen.length && ritzPfade[ri]) {
+          ritzPfade[ri].dataset.nr = nr;
+          if (nrs) ritzPfade[ri].dataset.nrs = nrs;
+          ri++;
+        }
         // Beschriftung in die Mitte des Außenumrisses (Schwerpunkt), Größe passend zum Teil
         const z = teil.zuege[teil.ai ?? aussenIndex(teil.zuege)].map(([px, py]) => [x + px - teil.minX, y + teil.maxY - py]);
         let A = 0, cx = 0, cy = 0;
         z.forEach(([x1, y1], k) => { const [x2, y2] = z[(k + 1) % z.length]; const c = x1 * y2 - x2 * y1; A += c; cx += (x1 + x2) * c; cy += (y1 + y2) * c; });
         if (Math.abs(A) < 1e-9) return;
         cx /= 3 * A; cy /= 3 * A;
-        const nummer = String(nr).padStart(2, '0');
+        const nummer = (quelle.t.nrs || [nr]).map(n => String(n).padStart(2, '0')).join('+');
         let text = `${nummer} ${quelle.t.name}`;
         let groesse = Math.min(teil.h * 0.3, teil.b * 0.9 / (0.58 * text.length), 14);
-        if (groesse < 3) { text = nummer; groesse = Math.min(teil.h * 0.4, teil.b * 0.9 / (0.58 * 2), 14); }
+        if (groesse < 3) { text = nummer; groesse = Math.min(teil.h * 0.4, teil.b * 0.9 / (0.58 * nummer.length), 14); }
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         t.setAttribute('x', cx); t.setAttribute('y', cy);
         t.setAttribute('font-size', Math.max(groesse, 1.5));
@@ -1890,12 +2167,15 @@
       const nr = index === null ? null : index + 1;
       if (nr === hervorgehoben) return;
       hervorgehoben = nr;
+      // Beim Auffalten leuchten alle Teile desselben Netzes zusammen
+      const zusammen = nr === null ? [] : (netzVon.get(nr) || [nr]);
       document.querySelectorAll('.platte svg').forEach(svg => {
         svg.classList.toggle('hervor', nr !== null);
-        svg.querySelectorAll('[data-nr]').forEach(el => el.classList.toggle('aktiv-teil', Number(el.dataset.nr) === nr));
+        svg.querySelectorAll('[data-nr]').forEach(el => el.classList.toggle('aktiv-teil',
+          (el.dataset.nrs ? el.dataset.nrs.split(' ').map(Number) : [Number(el.dataset.nr)]).some(n => zusammen.includes(n))));
       });
       flacheTeile.forEach(t => {
-        const aktiv = t.nr === nr;
+        const aktiv = zusammen.includes(t.nr);
         t.li.classList.toggle('aktiv-teil', aktiv);
         // 3D: das Bauteil leuchtet orange, alle anderen werden durchsichtig
         const m = t.mesh.material;
@@ -1922,7 +2202,7 @@
       hervorheben(null);
       if (index === null) return;
       // Das Teil in der Vorschau ins Bild holen (nur so weit wie nötig)
-      document.querySelector(`.platte path.teil[data-nr="${index + 1}"]`)
+      document.querySelector(`.platte path.teil[data-nr="${index + 1}"], .platte path.teil[data-nrs~="${index + 1}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     const strahl = new THREE.Raycaster();
@@ -2018,7 +2298,8 @@
         return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
       }).join('\n');
       const ritzGruppe = ritzPfade ? `
-  <!-- ${farbname(farben.anritzen)} = Anritzen (Gehrung: von der Linie bis zur Kante schräg abschleifen) -->
+  <!-- ${farbname(farben.anritzen)} = Anritzen (${document.getElementById('kanten').value === 'auffalten'
+    ? 'Auffalten: an der Linie anritzen und knicken' : 'Gehrung: von der Linie bis zur Kante schräg abschleifen'}) -->
   <g fill="none" stroke="${rgb(farben.anritzen)}" stroke-width="0.01">
 ${ritzPfade}
   </g>` : '';
@@ -2191,8 +2472,7 @@ ${pfade}
 
     // Für Tests: Modell direkt aus Text laden
     window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile, ueberlappungen,
-      vorschlagModus: an => pappeModusSetzen(an), vorschlag: () => vorschlag };
-  </script>
+      vorschlagModus: an => pappeModusSetzen(an), vorschlag: () => vorschlag };  </script>
 
   <!-- ---------- Intro-Animation ----------
        Eigenes kleines Skript (unabhängig von three.js), damit das Intro auch dann

@@ -46,7 +46,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   - [x] stumpf (Umrisse wie flach gelegt)
   - [x] Materialstärke ausgleichen (Stoß auf Außenkante, größere Platte läuft durch)
   - [x] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
-  - [ ] Auffalten (Flächen als ein Stück, Knicke blau)
+  - [x] Auffalten (Flächen als ein Stück, Knicke blau)
 - [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
 - [ ] Fugen/Fensterlinien auf Fassaden als Gravur übernehmen
 - [ ] PDF-Export
@@ -257,9 +257,22 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Platzbedarf: Testhäuser nie mehr Platten als vorher, in 93 von 405 Fällen liegt die letzte Platte sogar weniger
   weit belegt, in 3 Fällen minimal mehr; Formatvorschlag insgesamt 1 % weniger Pappe; Walmdach 1:50 weiter A3 mit 51 %.
 
+- 17.11.: **Auffalten** fertig (Karte in Kachel 05 freigeschaltet). Teile derselben Gruppe aus Kachel 06
+  (z. B. alle Außenwände), die an einer Ecke zusammenstoßen, werden ein Stück („Netz“). An jeder Faltkante gehen
+  beide Platten bis zur äußeren Ecklinie (kein Versatz), das Nachbarteil wird um diese Linie in die Ebene des ersten
+  Teils geklappt. Die Faltkante wird blau angeritzt, alle anderen Stöße werden geschnitten wie bei „Materialstärke
+  ausgleichen“, damit das Modell an den Schnittkanten schließt. Keine Klebelaschen. Die längsten gemeinsamen Kanten
+  werden zuerst gefaltet; würde ein Knick das Netz sich selbst überlappen lassen oder zu groß für die Pappe machen,
+  wird dort geschnitten statt geknickt (Meldung nennt die Anzahl). Teile verschiedener Gruppen hängen nie zusammen.
+  Das Netz läuft als ein Teil durch das Anordnen; beim Darüberfahren leuchten alle Teile des Netzes.
+  Getestet: OBJ-Testhaus → Band aus 4 Außenwänden 398 × 64 mm mit 3 Knicken (letzte Ecke geschnitten und um 2 mm
+  gekürzt), Tür und Fenster bleiben; Walmdach → 4 Dachflächen ein Netz mit 3 Knicken (First geschnitten);
+  kleine Pappe (250 × 180, 200 × 150 …) teilt die Netze automatisch. 183 Fälle (3 Modelle, 1:20–1:200, Abstand
+  0/2/5 mm, 4 Pappgrößen, Formatvorschlag): 0 Überlappungen, alle Umrisse geschlossen. Stumpf, ausgleichen und
+  Gehrung liefern Zeichen für Zeichen dieselbe SVG wie vorher (27 Vergleichsfälle).
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
 3. DXF-Export.
 4. Echtes Archicad-Modell testen (OBJ und IFC).
-5. Kanten: „Auffalten“ (Kachel 05).
