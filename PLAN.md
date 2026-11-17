@@ -364,6 +364,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet mit dem OBJ-Testhaus (1:50): Bodenkanten 120 mm / 6,00 m und 80 mm / 4,00 m, Diagonale über zwei
   eingerastete Ecken 144,2 mm / 7,21 m.
 
+- 17.11.: **Mauszeiger als Maßband.** Ist der Schalter „Maßband“ an, wird der orange Punkt über den Platten zu einem
+  kleinen Maßband (oranges Gehäuse rechts, weißes Band mit Strichen nach links, Haken an der Spitze). Gemessen wird
+  an der Hakenspitze – genau dort liegt die Mausposition. Außerhalb der Platten und bei ausgeschaltetem Maßband bleibt
+  der Punkt wie gewohnt. Getestet: aus → Punkt, an über der Platte → Maßband, an außerhalb → Punkt.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

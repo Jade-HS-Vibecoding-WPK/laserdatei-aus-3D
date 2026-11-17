@@ -380,11 +380,20 @@
       opacity: 0;
       transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s;
     }
+    /* Mit eingeschaltetem Maßband wird der Punkt über den Platten zu einem kleinen Maßband.
+       Gemessen wird an der Spitze des Bandes (dem Haken links) – genau dort liegt die Mausposition. */
+    #punkt.massband { width: 30px; height: 22px; margin: -15px 0 0 -1px; background: transparent; }
+    #punkt.massband .massband-form { display: block; }
+    #punkt .massband-form .band { fill: #fff; stroke: var(--akzent); stroke-width: 1.2; }
+    #punkt .massband-form .striche { stroke: var(--akzent); stroke-width: 1; }
+    #punkt .massband-form .haken { stroke: var(--akzent); stroke-width: 2; stroke-linecap: round; }
+    #punkt .massband-form .gehaeuse { fill: var(--akzent); }
+    #punkt .massband-form .mitte { fill: #fff; }
     /* Über dem 3D-Modell wird der Punkt zum Ring (zeigt: hier kann man drehen und bewegen) … */
     #punkt.ring { width: 24px; height: 24px; margin: -12px 0 0 -12px; background: transparent; }
     #punkt svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    #punkt.ring svg { display: block; }
-    #punkt svg path {
+    #punkt.ring .ring-form { display: block; }
+    #punkt .ring-form path {
       fill: none; stroke: var(--akzent); stroke-width: 2;
       /* Ring: oberer Halbkreis + unterer Halbkreis (die Übergänge dazwischen haben die Länge 0) */
       d: path("M2 12 A10 10 0 1 1 22 12 C22 12 22 12 22 12 C22 12 22 12 22 12 A10 10 0 1 1 2 12 C2 12 2 12 2 12 C2 12 2 12 2 12 Z");
@@ -393,7 +402,7 @@
     /* … und solange eine Maustaste gedrückt ist, verschmilzt er zu einer „8“ aus zwei runden Kreisen
        (Mitte 6,5 und 17,5, Radius 5,5). Je Seite zwei weiche Bögen bis zur Taille – so verschmilzt die
        Mitte rund statt spitz; die Seiten berühren sich nicht (7 px Abstand) */
-    #punkt.ring.gedrueckt svg path {
+    #punkt.ring.gedrueckt .ring-form path {
       d: path("M6.69 7.92 A5.5 5.5 0 1 1 17.31 7.92 C16.74 10.05 15.5 9.8 15.5 12 C15.5 14.2 16.74 13.95 17.31 16.08 A5.5 5.5 0 1 1 6.69 16.08 C7.26 13.95 8.5 14.2 8.5 12 C8.5 9.8 7.26 10.05 6.69 7.92 Z");
     }
     #punkt.sichtbar { opacity: 1; }
@@ -430,7 +439,7 @@
   </script>
 </head>
 <body class="intro">
-  <div id="punkt" aria-hidden="true"><svg viewBox="0 0 24 24"><path/></svg></div>
+  <div id="punkt" aria-hidden="true"><svg class="ring-form" viewBox="0 0 24 24"><path/></svg><svg class="massband-form" viewBox="0 0 30 22"><rect class="band" x="1" y="13" width="15" height="4" rx="0.5"/><path class="striche" d="M4 13v2M7 13v2.6M10 13v2M13 13v2.6"/><line class="haken" x1="1" y1="11" x2="1" y2="19"/><rect class="gehaeuse" x="14" y="3" width="15" height="15" rx="4"/><circle class="mitte" cx="21.5" cy="10.5" r="3"/></svg></div>
   <header>
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
@@ -2906,6 +2915,9 @@ ${pfade}
           punkt.classList.toggle('weiss', aufOrange(el));
           punkt.classList.toggle('gross', !!el?.closest('button, a, select, input, .erledigt'));
           punkt.classList.toggle('ring', zieht3d || !!el?.closest(MODELL));
+          // Maßband eingeschaltet und Maus über einer Platte → Mauszeiger wird zum Maßband
+          punkt.classList.toggle('massband', document.getElementById('mass-schalter')?.getAttribute('aria-checked') === 'true'
+            && !!el?.closest('.platte .bild svg'));
           punkt.classList.add('sichtbar');
         });
       });
