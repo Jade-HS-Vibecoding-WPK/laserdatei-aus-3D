@@ -445,3 +445,5 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Boden/Decke fest auf Graupappe 2 mm 64 mm (zwischen den 2-mm-Platten), Querwände 78 mm; 0 Überlappungen.
 
 ## Nächste Schritte
+1. Teile in der Vorschau einzeln drehen/verschieben (wäre gut).
+2. Poster und Präsentation für Freitag (20.11.) vorbereiten.
