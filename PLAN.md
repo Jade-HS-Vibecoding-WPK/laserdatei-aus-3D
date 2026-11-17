@@ -347,6 +347,15 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   13 % größer. Die Linie passt sich der Fensterbreite an und erscheint nach dem Intro zusammen mit dem Untertitel.
   Getestet: Linie und Titel haben dieselbe Mitte, Abstände 6 → 6,8 → 7,6 … bis etwa 40 px.
 
+- 17.11.: **Punktlinie lebt.** (1) Nach dem Intro wird die Linie eingelasert wie vorher der Titel: ein oranger,
+  leuchtender Laserpunkt fährt von links nach rechts (etwa 700 px pro Sekunde, höchstens 1,6 s, zum Ende langsamer),
+  jeder Punkt erscheint mit einem kleinen Aufblitzen, sobald der Laser vorbeikommt. Mit „Bewegung reduzieren“ im
+  Betriebssystem sind die Punkte sofort da. (2) Fährt die Maus über die Linie, weichen die Punkte zur Seite aus:
+  links der Maus nach links, rechts nach rechts, je näher desto weiter (bis 28 px); ein Stück über oder unter der
+  Linie wirkt es schwächer. Fährt die Maus weg, gleiten sie zurück.
+  Getestet: nach dem Intro 6 → 13 → 17 → 18 von 18 Punkten in 0,05 / 0,2 / 0,4 / 0,7 s; Maus bei x = 120 px schiebt
+  den Nachbarpunkt links um 27,5 px nach links, rechts um 26 px nach rechts, danach wieder genau in Ruhelage.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

@@ -37,7 +37,8 @@
     }
     header h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
     header .slogan { color: var(--grau); font-size: 16px; }
-    header .punktlinie { flex: 1; align-self: center; height: 12px; min-width: 0; fill: var(--akzent); }
+    header .punktlinie { flex: 1; align-self: center; height: 12px; min-width: 0; fill: var(--akzent); overflow: visible; }
+    header .punktlinie circle { transform-box: fill-box; transform-origin: center; }
 
     .button {
       background: var(--akzent);
@@ -432,19 +433,92 @@
   <script>
     (function () {
       const linie = document.querySelector('header .punktlinie');
+      const NS = 'http://www.w3.org/2000/svg';
+      const ruhig = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let punkte = [];                       // { el, x (Ruhelage), ox (jetzige Verschiebung), ziel, sichtbar }
+      let laser = null, laserX = null, laserStart = 0, laserDauer = 0;
+      let maus = null, laeuft = false;
+
+      // Punkte anlegen: links (am Titel) eng, nach rechts wird der Abstand jedes Mal etwas größer
       const zeichnen = () => {
         const breite = linie.clientWidth, hoehe = linie.clientHeight;
         if (!breite) return;
-        const r = 2.2;                       // Punktgröße
-        let x = r, abstand = 6, kreise = '';
-        // links (am Titel) eng, nach rechts wird der Abstand jedes Mal etwas größer
-        while (x <= breite - r) {
-          kreise += `<circle cx="${x.toFixed(1)}" cy="${hoehe / 2}" r="${r}"/>`;
-          x += abstand;
-          abstand *= 1.13;
+        const r = 2.2;
+        linie.innerHTML = '<defs><filter id="punkt-leuchten" x="-200%" y="-200%" width="500%" height="500%">' +
+          '<feGaussianBlur stdDeviation="3"/></filter></defs>';
+        punkte = [];
+        for (let x = r, abstand = 6; x <= breite - r; x += abstand, abstand *= 1.13) {
+          const el = document.createElementNS(NS, 'circle');
+          el.setAttribute('cx', x.toFixed(1)); el.setAttribute('cy', hoehe / 2); el.setAttribute('r', r);
+          // Noch nicht eingelasert? Dann unsichtbar, bis der Laserpunkt vorbeikommt
+          const sichtbar = laserX === null;
+          el.style.opacity = sichtbar ? 1 : 0;
+          linie.appendChild(el);
+          punkte.push({ el, x, ox: 0, ziel: 0, sichtbar });
         }
-        linie.innerHTML = kreise;
+        // Laserpunkt: oranges Leuchten mit kräftigem Kern (wie im Intro, nur in Orange)
+        laser = document.createElementNS(NS, 'g');
+        laser.innerHTML = '<circle r="7" opacity="0.45" filter="url(#punkt-leuchten)"/><circle r="2.6"/>';
+        laser.setAttribute('transform', `translate(-20 ${hoehe / 2})`);
+        laser.style.opacity = 0;
+        linie.appendChild(laser);
+        anstossen();
       };
+
+      // Einlasern: der Laserpunkt fährt von links nach rechts, jeder Punkt erscheint, wenn er vorbeikommt
+      const einlasern = () => {
+        if (ruhig) { laserX = null; punkte.forEach(p => { p.sichtbar = true; p.el.style.opacity = 1; }); return; }
+        punkte.forEach(p => { p.sichtbar = false; p.el.style.opacity = 0; });
+        laserX = 0; laserStart = performance.now();
+        laserDauer = Math.min(1600, Math.max(700, linie.clientWidth / 0.7));   // etwa 700 px pro Sekunde
+        anstossen();
+      };
+
+      // Ein Bild weiterrechnen: Laser bewegen, Punkte erscheinen lassen, Punkte der Maus ausweichen lassen
+      const schritt = () => {
+        laeuft = false;
+        let weiter = false;
+        if (laserX !== null) {
+          const t = Math.min(1, (performance.now() - laserStart) / laserDauer);
+          laserX = (1 - Math.pow(1 - t, 2)) * (linie.clientWidth + 10);         // wird zum Ende hin langsamer
+          laser.setAttribute('transform', `translate(${laserX} ${linie.clientHeight / 2})`);
+          laser.style.opacity = t < 1 ? 1 : 0;
+          punkte.forEach(p => {
+            if (!p.sichtbar && p.x <= laserX) {
+              p.sichtbar = true;
+              p.el.style.opacity = 1;
+              p.el.animate([{ opacity: 0, transform: 'scale(2.2)' }, { opacity: 1, transform: 'scale(1)' }],
+                { duration: 250, easing: 'ease-out' });
+            }
+          });
+          if (t < 1) weiter = true; else laserX = null;
+        }
+        // Ausweichen: Punkte nahe der Maus werden zur Seite geschoben – nach links, wenn sie links der Maus
+        // liegen, nach rechts, wenn sie rechts liegen. Je näher, desto weiter; weiter oben/unten wirkt es schwächer.
+        const r = linie.getBoundingClientRect();
+        const staerke = maus ? Math.exp(-Math.pow((maus.y - (r.top + r.height / 2)) / 30, 2)) : 0;
+        punkte.forEach(p => {
+          const d = maus ? p.x - (maus.x - r.left) : 0;
+          p.ziel = staerke > 0.01 ? Math.sign(d || 1) * 28 * staerke * Math.exp(-Math.pow(d / 50, 2)) : 0;
+          p.ox += (p.ziel - p.ox) * 0.22;
+          if (Math.abs(p.ziel - p.ox) > 0.05) weiter = true; else p.ox = p.ziel;
+          p.el.setAttribute('cx', (p.x + p.ox).toFixed(2));
+        });
+        if (weiter) anstossen();
+      };
+      const anstossen = () => { if (!laeuft) { laeuft = true; requestAnimationFrame(schritt); } };
+
+      addEventListener('mousemove', ev => { maus = { x: ev.clientX, y: ev.clientY }; anstossen(); }, { passive: true });
+      document.addEventListener('mouseleave', () => { maus = null; anstossen(); });
+      addEventListener('scroll', anstossen, { passive: true });
+
+      // Während des Intros ist die Linie versteckt; danach wird sie eingelasert (wie vorher der Titel)
+      let introLief = false;
+      new MutationObserver(() => {
+        const intro = document.body.classList.contains('intro');
+        if (intro) introLief = true;
+        else if (introLief) { introLief = false; einlasern(); }
+      }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       new ResizeObserver(zeichnen).observe(linie);
     })();
   </script>
