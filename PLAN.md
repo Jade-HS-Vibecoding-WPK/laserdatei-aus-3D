@@ -35,7 +35,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
 - [x] „Ich habe noch keine Pappe“: LaserPrep schlägt das handelsübliche Format mit dem wenigsten Rest vor (begrenzt aufs Laserbett)
 - [x] Farben individuell zuordnen (Funktion ↔ Farbe)
-- [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
+- [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen *(teilweise: Gruppen + Auswahl was gelasert wird; Pappe je Gruppe fehlt)*
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört) *(teilweise: Nummer + Name in der Vorschau, Hervorheben im 3D-Modell; Gravur in der Datei bewusst nicht)*
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
@@ -226,8 +226,24 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Die Auswahl bleibt, bis man im 3D-Modell ins Leere klickt; Darüberfahren über andere Teile zeigt diese kurz an.
   Wer die Maus beim Klicken bewegt, dreht nur das Modell. Hinweiszeile im 3D-Feld ergänzt.
 
+- 17.11.: **Neue Kachel 06 „Auswahl“** – welche Bauteile werden gelasert? Die Kacheln dahinter heißen jetzt
+  07 Bauteile und 08 Vorschau. Oben stehen sieben Gruppen als Häkchen-Karten mit Anzahl: Außenwände, Innenwände,
+  Dach, Decken, Bodenplatte, Treppe, Sonstige Bauteile (leere Gruppen sind blass). Darunter „Eigene Bauteile aus
+  deiner Datei“: alle gefundenen Teile einzeln mit Häkchen, nach Gruppen sortiert (Maus auf dem Namen zeigt das Teil
+  im 3D-Modell). Gruppen-Häkchen schalten die ganze Gruppe; ist nur ein Teil gewählt, zeigt das Häkchen einen Strich.
+  Abgewählte Teile fehlen in Vorschau und SVG, sind im 3D-Modell blass und in der Bauteilliste durchgestrichen
+  („nicht gelasert“). Standard: alles gewählt.
+  Einsortieren: 1. IFC-Typ und Unterart (IfcSlab BASESLAB = Bodenplatte, FLOOR = Decke, ROOF/IfcRoof = Dach,
+  IfcStair = Treppe, IfcWall = Wand; Außen/Innen aus Pset_WallCommon → IsExternal, falls vorhanden),
+  2. Name (Wand, Dach, Boden, Decke, Treppe …), 3. Lage (senkrecht = Wand, schräg = Dach, unterste waagerechte
+  Platte = Bodenplatte, oberste = Dach, dazwischen = Decke). Wand außen oder innen: von 9 Punkten auf der Wand wird
+  waagerecht nach beiden Seiten geschaut; trifft man auf einer Seite meist keine andere Wand, ist sie außen.
+  IFC liest jetzt zusätzlich Treppen, Stützen, Träger, Platten und sonstige Bauteile ein.
+  Getestet: OBJ-Testhaus (4 Außenwände, Decke, Bodenplatte), Walmdach (4 Dachflächen → Dach), Testhaus mit
+  zusätzlicher Trennwand (→ Innenwand) und Treppe (→ Treppe); Decke abwählen → 5 von 6 Teilen auf der Platte.
+
 ## Nächste Schritte
-1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
+1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
 3. DXF-Export.
 4. Echtes Archicad-Modell testen (OBJ und IFC).

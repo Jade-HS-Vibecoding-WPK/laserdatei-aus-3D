@@ -59,6 +59,7 @@
         "pappe    datei    modell   modell"
         "massstab farben   modell   modell"
         "gehrung  gehrung  gehrung  gehrung"
+        "auswahl  auswahl  auswahl  auswahl"
         "bauteile bauteile bauteile bauteile"
         "vorschau vorschau vorschau vorschau";
       gap: 16px;
@@ -72,13 +73,14 @@
     #k-massstab { grid-area: massstab; }
     #k-farben { grid-area: farben; }
     #k-gehrung { grid-area: gehrung; }
+    #k-auswahl { grid-area: auswahl; }
     #k-bauteile { grid-area: bauteile; }
     #k-vorschau { grid-area: vorschau; }
     /* Schmales Fenster: alle Kacheln untereinander, in Schritt-Reihenfolge */
     @media (max-width: 900px) {
       .bento {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "pappe" "datei" "modell" "massstab" "farben" "gehrung" "bauteile" "vorschau";
+        grid-template-areas: "pappe" "datei" "modell" "massstab" "farben" "gehrung" "auswahl" "bauteile" "vorschau";
         padding: 16px;
       }
       header { padding: 24px 16px 16px; }
@@ -261,6 +263,28 @@
     }
     .platte svg .beschriftung.aktiv-teil { opacity: 1; }
     #teile li.aktiv-teil { color: var(--akzent); }
+    #teile li.abgewaehlt { opacity: 0.4; text-decoration: line-through; }
+
+    /* Kachel 06 Auswahl: Gruppen als Karten, darunter alle Bauteile einzeln */
+    .gruppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+    .gruppe-wahl, .teil-wahl { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .gruppe-wahl {
+      background: #fff; color: var(--text); border: 1.5px solid var(--linie); border-radius: 10px;
+      padding: 10px 12px; font-size: 14px; font-weight: 500;
+    }
+    .gruppe-wahl:has(input:checked) { border-color: var(--text); }
+    .gruppe-wahl.leer { cursor: default; }
+    .gruppe-wahl.leer > * { opacity: 0.4; }   /* Karte bleibt weiß, nur der Inhalt ist blass */
+    .gruppe-wahl .anzahl { margin-left: auto; color: var(--grau); font-size: 12px; }
+    .gruppen input, .eigene input { accent-color: var(--akzent); width: 16px; height: 16px; margin: 0; flex: none; }
+    .eigene { background: #fff; color: var(--text); border-radius: 10px; padding: 12px 14px; }
+    .kachel:not(.aktiv) .eigene { border: 1px solid var(--linie); }
+    .eigene h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+    .eigene h4 { margin: 10px 0 4px; font-size: 12px; color: var(--grau); font-weight: 500; }
+    .eigene-gruppe { columns: 3 220px; column-gap: 24px; }
+    .teil-wahl { font-size: 13px; padding: 3px 0; break-inside: avoid; }
+    .teil-wahl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .teil-wahl:hover { color: var(--akzent); }
     .button.zweit { background: #fff; color: var(--akzent); box-shadow: inset 0 0 0 2px var(--akzent); }
     .button.zweit:hover { background: rgba(255, 106, 0, 0.06); }
     .klein-button { padding: 4px 12px; font-size: 12px; }
@@ -524,21 +548,35 @@
       </div>
     </section>
 
-    <!-- 06 Bauteile -->
-    <section class="kachel" id="k-bauteile" data-schritt="5">
-      <div class="kopf"><span class="nr">06</span><h2>Bauteile</h2></div>
+    <!-- 06 Auswahl: welche Bauteile werden gelasert? -->
+    <section class="kachel" id="k-auswahl" data-schritt="5">
+      <div class="kopf"><span class="nr">06</span><h2>Auswahl</h2></div>
+      <p class="zusammenfassung" data-zusammenfassung></p>
+      <div class="inhalt">
+        <p class="frage">Welche Bauteile sollen gelasert werden? Nimm einen Haken weg, um eine Gruppe oder einzelne Teile wegzulassen.</p>
+        <div class="gruppen" id="gruppen"></div>
+        <div class="eigene">
+          <h3>Eigene Bauteile aus deiner Datei</h3>
+          <div id="eigene-liste"><p class="klein">Sobald ein Modell geladen ist, stehen hier alle gefundenen Bauteile.</p></div>
+        </div>
+        <button class="button weiter">Weiter</button>
+      </div>
+    </section>
+
+    <!-- 07 Bauteile -->
+    <section class="kachel" id="k-bauteile" data-schritt="6">
+      <div class="kopf"><span class="nr">07</span><h2>Bauteile</h2></div>
       <p class="zusammenfassung" data-zusammenfassung></p>
       <div class="inhalt">
         <p id="dateiname">Noch kein Modell geladen</p>
         <ul id="teile"></ul>
-        <p class="klein">Gruppen (Außenwände, Innenwände, Decke, Dach) und die Pappe je Gruppe kommen im nächsten Schritt.</p>
         <button class="button weiter">Weiter zur Vorschau</button>
       </div>
     </section>
 
-    <!-- 07 Vorschau -->
-    <section class="kachel" id="k-vorschau" data-schritt="6">
-      <div class="kopf"><span class="nr">07</span><h2>Vorschau</h2><span id="platte-info"></span></div>
+    <!-- 08 Vorschau -->
+    <section class="kachel" id="k-vorschau" data-schritt="7">
+      <div class="kopf"><span class="nr">08</span><h2>Vorschau</h2><span id="platte-info"></span></div>
       <div class="inhalt">
         <div class="vorschlag" id="vorschlag" hidden></div>
         <div id="platten"></div>
@@ -627,8 +665,10 @@
     // (web-ifc.wasm) vom selben CDN – darum klappt es auch ohne eigenen Server.
     const WEB_IFC = 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.78/';
     // Diese Bauteiltypen werden übernommen. Fenster und Türen fehlen absichtlich:
-    // In den Wänden bleiben nur ihre Löcher.
-    const IFC_TYPEN = ['IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCSLAB', 'IFCROOF'];
+    // In den Wänden bleiben nur ihre Löcher. Treppen, Stützen, Träger, Platten und
+    // sonstige Bauteile kommen dazu und lassen sich in Kachel 06 an- und abwählen.
+    const IFC_TYPEN = ['IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCSLAB', 'IFCROOF', 'IFCSTAIR', 'IFCSTAIRFLIGHT',
+      'IFCCOLUMN', 'IFCBEAM', 'IFCMEMBER', 'IFCPLATE', 'IFCBUILDINGELEMENTPROXY'];
     let ifc = null;
     let einheitVorIfc = null;
 
@@ -669,11 +709,25 @@
           geometrie.setAttribute('position', new THREE.Float32BufferAttribute(punkte, 3));
           geometrie.computeVertexNormals();
           const teil = new THREE.Mesh(geometrie);
-          const name = api.GetLine(modellId, mesh.expressID)?.Name?.value;
+          const zeile = api.GetLine(modellId, mesh.expressID);
           const typ = api.GetNameFromTypeCode(api.GetLineType(modellId, mesh.expressID));
-          teil.name = name || `${typ} #${mesh.expressID}`;
+          teil.name = zeile?.Name?.value || `${typ} #${mesh.expressID}`;
+          // Für die Auswahl (Kachel 06): IFC-Typ und Unterart merken, z. B. IFCSLAB + BASESLAB
+          teil.userData = { ifcTyp: String(typ).toUpperCase(), art: zeile?.PredefinedType?.value || '', id: mesh.expressID };
           gruppe.add(teil);
         });
+        // Wände: Steht in der Datei, ob sie außen liegen (Pset_WallCommon → IsExternal)?
+        for (const teil of gruppe.children) {
+          if (!teil.userData.ifcTyp.startsWith('IFCWALL')) continue;
+          try {
+            const psets = await api.properties.getPropertySets(modellId, teil.userData.id, true);
+            for (const pset of psets || []) {
+              for (const eig of pset.HasProperties || []) {
+                if (eig?.Name?.value === 'IsExternal' && eig.NominalValue) teil.userData.aussen = !!eig.NominalValue.value;
+              }
+            }
+          } catch (e) { /* keine Angabe → wird aus der Lage erraten */ }
+        }
       } finally {
         api.CloseModel(modellId);
       }
@@ -766,6 +820,9 @@
       });
       // Herausfinden, welche Kanten an ein anderes Bauteil stoßen (für „Materialstärke ausgleichen“)
       stoesseFinden(bauteile, flacheTeile);
+      // Gruppen erkennen (Außenwand, Dach …) und die Auswahl in Kachel 06 aufbauen
+      gruppenErkennen(bauteile, flacheTeile);
+      auswahlZeichnen();
 
       dateiBasis = dateiname.replace(/\.(obj|ifc)$/i, '');
       modellGeladen = { name: dateiname, anzahl: bauteile.length };
@@ -806,7 +863,8 @@
         `1:${e.massstab} · CAD in ${e.einheitMm === 1 ? 'mm' : 'm'}`,
         farbenZusammenfassung(),
         kanten.options[kanten.selectedIndex].text,
-        modellGeladen ? `${modellGeladen.anzahl} Bauteile` : '–'
+        auswahlZusammenfassung(),
+        modellGeladen ? `${flacheTeile.filter(t => t.gewaehlt !== false).length} von ${modellGeladen.anzahl} Bauteilen` : '–'
       ];
       SCHRITTE.forEach((kachel, i) => {
         const feld = kachel.querySelector('[data-zusammenfassung]');
@@ -1068,6 +1126,73 @@
         a += x1 * y2 - x2 * y1;
       }
       return a / 2;
+    }
+
+    // ---------- 5e. Bauteile in Gruppen einsortieren (für die Auswahl in Kachel 06) ----------
+    const GRUPPEN = [
+      { id: 'aussenwand', name: 'Außenwände' }, { id: 'innenwand', name: 'Innenwände' },
+      { id: 'dach', name: 'Dach' }, { id: 'decke', name: 'Decken' }, { id: 'boden', name: 'Bodenplatte' },
+      { id: 'treppe', name: 'Treppe' }, { id: 'sonstige', name: 'Sonstige Bauteile' }
+    ];
+
+    // Reihenfolge: 1. was die IFC-Datei sagt (Typ + Unterart), 2. Name des Objekts,
+    // 3. Lage im Modell (senkrecht = Wand, schräg = Dach, waagerecht unten = Bodenplatte …).
+    // Wände sind „außen“, wenn die Datei es sagt – sonst, wenn auf einer Seite der Wand
+    // keine andere Wand mehr kommt (Blick waagerecht nach außen trifft nichts).
+    function gruppenErkennen(bauteile, teile) {
+      const gesamt = new THREE.Box3();
+      const kaesten = bauteile.map(m => { m.geometry.computeBoundingBox(); const b = m.geometry.boundingBox.clone(); gesamt.union(b); return b; });
+      const hoehe = gesamt.max.y - gesamt.min.y || 1;
+      const waende = [];
+      teile.forEach((t, i) => {
+        const u = bauteile[i].userData || {}, typ = u.ifcTyp || '', art = String(u.art || '').toUpperCase();
+        const name = t.name.toLowerCase(), b = kaesten[i];
+        const ny = t.flach ? Math.abs(t.flach.n.y) : 0;
+        let g;
+        if (typ.startsWith('IFCSTAIR') || /treppe|stair|stufe/.test(name)) g = 'treppe';
+        else if (typ === 'IFCROOF' || art === 'ROOF' || /dach|roof/.test(name)) g = 'dach';
+        else if (art === 'BASESLAB' || /bodenplatte|fundament|^boden/.test(name)) g = 'boden';
+        else if (art === 'FLOOR' || art === 'LANDING' || /decke|ceiling|floor/.test(name)) g = 'decke';
+        else if (typ.startsWith('IFCWALL') || /wand|wall/.test(name)) g = 'wand';
+        else if (typ && typ !== 'IFCSLAB') g = 'sonstige';                 // Stütze, Träger, Platte …
+        else if (!t.flach) g = 'sonstige';
+        else if (ny < 0.3) g = typ ? 'sonstige' : 'wand';
+        else if (ny < 0.9) g = 'dach';                                     // schräge Platte
+        else if (b.min.y <= gesamt.min.y + hoehe * 0.05) g = 'boden';
+        else if (b.max.y >= gesamt.max.y - hoehe * 0.05) g = 'dach';       // oberste waagerechte Platte
+        else g = 'decke';
+        t.gruppe = g;
+        t.gewaehlt = true;
+        if (g === 'wand') waende.push(i);
+      });
+      // Außen oder innen?
+      const strahl = new THREE.Raycaster();
+      const wandMeshes = waende.map(i => bauteile[i]);
+      if (bauteile[0]?.parent) bauteile[0].parent.updateMatrixWorld(true);
+      waende.forEach(i => {
+        const t = teile[i], m = bauteile[i];
+        let aussen = m.userData?.aussen;
+        if (typeof aussen !== 'boolean') {
+          const mitte = kaesten[i].getCenter(new THREE.Vector3()).applyMatrix4(m.matrixWorld);
+          const n = t.flach ? new THREE.Vector3(t.flach.n.x, 0, t.flach.n.z) : new THREE.Vector3(1, 0, 0);
+          if (n.lengthSq() < 1e-9) n.set(1, 0, 0);
+          n.normalize();
+          const andere = wandMeshes.filter(w => w !== m);
+          // 9 Blickpunkte über die Wand verteilt – so stört ein Fenster in der Nachbarwand nicht
+          const quer = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize();
+          const groesse = kaesten[i].getSize(new THREE.Vector3());
+          const laenge = Math.abs(quer.x) * groesse.x + Math.abs(quer.z) * groesse.z;
+          const punkte = [];
+          for (const a of [-0.3, 0, 0.3]) for (const h of [-0.3, 0, 0.3]) {
+            punkte.push(mitte.clone().addScaledVector(quer, a * laenge).add(new THREE.Vector3(0, h * groesse.y, 0)));
+          }
+          aussen = [n, n.clone().negate()].some(r => {
+            const frei = punkte.filter(p => { strahl.set(p, r); return strahl.intersectObjects(andere, false).length === 0; }).length;
+            return frei >= 6;                    // mindestens 2/3 der Blicke treffen nichts → außen
+          });
+        }
+        t.gruppe = aussen ? 'aussenwand' : 'innenwand';
+      });
     }
 
     // ---------- 5c. Materialstärke ausgleichen ----------
@@ -1437,6 +1562,7 @@
 
       const ohneFlaeche = [];
       const start = flacheTeile.filter(t => {
+        if (t.gewaehlt === false) return false;          // in Kachel 06 abgewählt
         if (t.zuege.length) return true;
         ohneFlaeche.push(t.name);
         return false;
@@ -1499,7 +1625,8 @@
       // Maße in der Bauteilliste
       flacheTeile.forEach(t => {
         const teil = lage.get(t) || (t.zuege.length ? teilFuer(t, liste[0].dicke) : null);
-        t.massFeld.textContent = teil ? `${runde(teil.b)} × ${runde(teil.h)} mm` : '–';
+        t.massFeld.textContent = t.gewaehlt === false ? 'nicht gelasert' : teil ? `${runde(teil.b)} × ${runde(teil.h)} mm` : '–';
+        t.li.classList.toggle('abgewaehlt', t.gewaehlt === false);
       });
 
       // Was übrig bleibt: zu groß für jede Pappe – oder alle Platten sind voll
@@ -1645,6 +1772,89 @@
       });
     }
 
+    // ---------- 6d. Auswahl: welche Bauteile werden gelasert? (Kachel 06) ----------
+    function auswahlZeichnen() {
+      const gruppenFeld = document.getElementById('gruppen');
+      const eigene = document.getElementById('eigene-liste');
+      gruppenFeld.innerHTML = '';
+      GRUPPEN.forEach(g => {
+        const teile = flacheTeile.filter(t => t.gruppe === g.id);
+        const karte = document.createElement('label');
+        karte.className = 'gruppe-wahl' + (teile.length ? '' : ' leer');
+        karte.innerHTML = '<input type="checkbox"><span></span><span class="anzahl"></span>';
+        const haken = karte.querySelector('input');
+        haken.dataset.gruppe = g.id;
+        haken.disabled = !teile.length;
+        karte.querySelector('span').textContent = g.name;
+        karte.querySelector('.anzahl').textContent = teile.length ? teile.length : 'keine';
+        gruppenFeld.appendChild(karte);
+      });
+      if (!flacheTeile.length) { auswahlAktualisieren(false); return; }
+      eigene.innerHTML = '';
+      GRUPPEN.forEach(g => {
+        const teile = flacheTeile.filter(t => t.gruppe === g.id);
+        if (!teile.length) return;
+        const titel = document.createElement('h4');
+        titel.textContent = g.name;
+        const liste = document.createElement('div');
+        liste.className = 'eigene-gruppe';
+        teile.forEach(t => {
+          const zeile = document.createElement('label');
+          zeile.className = 'teil-wahl';
+          zeile.title = t.name;
+          zeile.innerHTML = '<input type="checkbox"><span></span>';
+          zeile.querySelector('input').dataset.nr = t.nr;
+          zeile.querySelector('span').textContent = `${String(t.nr).padStart(2, '0')} ${t.name}`;
+          // Maus auf dem Namen → Bauteil im 3D-Modell und in der Vorschau zeigen
+          zeile.addEventListener('mouseenter', () => hervorheben(t.nr - 1));
+          zeile.addEventListener('mouseleave', () => hervorheben(null));
+          liste.appendChild(zeile);
+        });
+        eigene.append(titel, liste);
+      });
+      auswahlAktualisieren(false);
+    }
+
+    // Häkchen an die Auswahl anpassen; neu = true → auch neu rechnen
+    function auswahlAktualisieren(neu = true) {
+      document.querySelectorAll('#gruppen input').forEach(h => {
+        const teile = flacheTeile.filter(t => t.gruppe === h.dataset.gruppe);
+        const an = teile.filter(t => t.gewaehlt !== false).length;
+        h.checked = teile.length > 0 && an === teile.length;
+        h.indeterminate = an > 0 && an < teile.length;   // nur ein Teil der Gruppe gewählt
+      });
+      document.querySelectorAll('#eigene-liste input').forEach(h => {
+        h.checked = flacheTeile[h.dataset.nr - 1]?.gewaehlt !== false;
+      });
+      if (!neu) return;
+      laserNeuBerechnen();
+      hervorgehoben = -1;                        // 3D-Modell neu einfärben
+      hervorheben(null);
+    }
+
+    function auswahlZusammenfassung() {
+      if (!flacheTeile.length) return 'Noch kein Modell';
+      const gewaehlt = flacheTeile.filter(t => t.gewaehlt !== false).length;
+      const ohne = GRUPPEN.filter(g => {
+        const teile = flacheTeile.filter(t => t.gruppe === g.id);
+        return teile.length && teile.every(t => t.gewaehlt === false);
+      }).map(g => g.name);
+      return `${gewaehlt} von ${flacheTeile.length} Bauteilen` + (ohne.length ? ` · ohne ${ohne.join(', ')}` : '');
+    }
+
+    document.getElementById('gruppen').addEventListener('change', ev => {
+      const id = ev.target.dataset.gruppe;
+      if (!id) return;
+      flacheTeile.filter(t => t.gruppe === id).forEach(t => { t.gewaehlt = ev.target.checked; });
+      auswahlAktualisieren();
+    });
+    document.getElementById('eigene-liste').addEventListener('change', ev => {
+      const t = flacheTeile[ev.target.dataset.nr - 1];
+      if (!t) return;
+      t.gewaehlt = ev.target.checked;
+      auswahlAktualisieren();
+    });
+
     // ---------- 6c. Ein Bauteil hervorheben (Vorschau, Bauteilliste und 3D-Modell) ----------
     // nr = Nummer aus der Bauteilliste (1, 2, …) oder null = nichts hervorheben
     // Ein im 3D-Modell angeklicktes Bauteil bleibt ausgewählt, bis man ins Leere klickt.
@@ -1666,8 +1876,9 @@
         // 3D: das Bauteil leuchtet orange, alle anderen werden durchsichtig
         const m = t.mesh.material;
         m.color.set(aktiv ? AKZENT : 0xeeeeee);
-        m.transparent = nr !== null && !aktiv;
-        m.opacity = m.transparent ? 0.18 : 1;
+        // abgewählte Bauteile (Kachel 06) sind auch ohne Hervorhebung blass
+        m.transparent = (nr !== null && !aktiv) || (nr === null && t.gewaehlt === false);
+        m.opacity = !m.transparent ? 1 : nr !== null ? 0.18 : 0.3;
         m.depthWrite = !m.transparent;
         m.needsUpdate = true;
       });
@@ -1890,6 +2101,7 @@ ${pfade}
 
     // Start: Schritt 01 (Pappe) ist offen, die Vorschau zeigt schon die leere Platte
     pappenZeichnen();
+    auswahlZeichnen();
     laserNeuBerechnen();
     schritteZeigen();
 
