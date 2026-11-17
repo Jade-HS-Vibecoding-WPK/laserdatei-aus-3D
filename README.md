@@ -8,6 +8,8 @@ Anhand eines 3D-Modells wird eine Laserdatei erstellt.
 (OBJ oder IFC auf die Seite ziehen oder „OBJ- oder IFC-Datei wählen“ klicken), 03 Maßstab, 04 Farben,
 05 Gehrung, 06 Bauteile, 07 Vorschau mit Download (eine Datei pro Platte, wahlweise SVG oder DXF; für DWG die DXF in AutoCAD
 als DWG speichern).
+In 06 Auswahl kann man je Gruppe eine Fassaden-Textur wählen (Mauerwerk, Klinker, Holzschalung, Plattenfassade,
+Dachziegel oder eine eigene SVG-Strichdatei); sie wird als feine Linie in der Gravur-Farbe auf die Außenseite gelasert.
 Zum Ausprobieren liegen Testmodelle in `beispiel/testhaus.obj`, `beispiel/testhaus.ifc` (Flachdach)
 und `beispiel/testhaus_walmdach.ifc` (Walmdach).
 

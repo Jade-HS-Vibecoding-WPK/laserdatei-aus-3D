@@ -25,7 +25,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
 - [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
 - [x] Doppelte/überlappende Linien automatisch entfernen *(Absicherung vor dem Speichern; durch den Abstand entstehen bisher keine)*
-- [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(teilweise: Farben einstellbar; in der SVG gibt es bisher nur Schneiden + Orientierungsrahmen, Anritzen/Gravur folgen)*
+- [x] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(alle vier Funktionen in SVG und DXF: Schneiden, Anritzen bei Gehrung/Auffalten, Orientierungsrahmen, Gravur für Fassaden-Texturen)*
 - [x] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(mehrere Sorten und Platten, Teile gedreht und dicht ineinander gelegt)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
 - [x] Export als SVG und DXF *(DWG über DXF + AutoCAD „Speichern unter“)*
@@ -48,7 +48,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   - [x] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
   - [x] Auffalten (Flächen als ein Stück, Knicke blau)
 - [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
-- [ ] Fugen/Fensterlinien auf Fassaden als Gravur übernehmen
+- [x] Fugen auf Fassaden als Gravur *(Fassaden-Texturen je Gruppe, auch eigene Strichdatei)*
 - [ ] PDF-Export
 
 ## Etappen (an die Kurstage gekoppelt)
@@ -398,6 +398,21 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Ohne Doppelungen bleibt die Datei Zeichen für Zeichen gleich (9 Vergleichsfälle). Getestet mit absichtlich
   eingebauten Fehlern: doppelter Umriss → 1 Linienzug übrig; Rechteck mit halb aufliegender Kante → genau dieses Stück
   entfernt, Rest als offener Linienzug; DXF genauso.
+
+- 17.11.: **Fassaden-Texturen als Gravur** (Kachel 06, je Gruppe). Unter den Gruppen gibt es „Fassaden-Textur (wird
+  graviert)“ mit einem Auswahlfeld je Gruppe: keine, Mauerwerk (NF, Läuferverband, Schichthöhe 8,33 cm, Steinlänge
+  25 cm), Klinker (DF, 6,25 / 25 cm), Holzschalung (senkrechte Bretter 12 cm), Plattenfassade (125 × 62,5 cm),
+  Dachziegel (Reihen 33 cm, Ziegel 30 cm, versetzt) oder **eigene Strichdatei** (SVG mit Linien; wird gekachelt,
+  „Musterbreite im Gebäude“ in cm einstellbar, Standard 100 cm). Das Muster ist maßstabsgerecht, wird am Umriss
+  abgeschnitten (Fenster und Türen bleiben frei), Ziegelreihen laufen ums Haus auf gleicher Höhe, auf Dächern parallel
+  zur Traufe. Gelasert als feine Linie in der Gravur-Farbe aus Kachel 04 (eigene Gruppe in der SVG, Ebene GRAVUR in
+  der DXF). Damit die Gravur außen ist, werden Teile, deren flache Ansicht die Innenseite zeigt, gespiegelt.
+  Entscheidung der Nutzerin: nur mit „stumpf“ oder „Materialstärke ausgleichen“ – bei Gehrung und Auffalten ist die
+  Auswahl ausgegraut, die Meldung erklärt es. Gravurlinien, die genau auf einer Schnittkante liegen, fallen weg.
+  Getestet (OBJ-Testhaus 1:50, Außenwände): Mauerwerk 2797 Gravurlinien, Klinker 3703, Holz 168, Platten 41, Dachziegel
+  644; bei ausgleichen entsprechend; überall 0 Überlappungen; Südwand im Bild mit versetzten Fugen, Fenster/Tür frei;
+  Walmdach mit Dachziegeln parallel zur Traufe, an den Graten abgeschnitten; eigene Rauten-SVG 755 Linien; DXF-Ebene
+  GRAVUR mit 755 Linien (Farbe 7); ohne Textur SVG Zeichen für Zeichen wie vorher. Rechenzeit mit Textur etwa 0,1–0,15 s.
 
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).

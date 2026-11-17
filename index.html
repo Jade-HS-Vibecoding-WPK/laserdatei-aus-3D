@@ -313,6 +313,17 @@
 
     /* Kachel 06 Auswahl: Gruppen als Karten, darunter alle Bauteile einzeln */
     #wangen-schalter { margin-top: 12px; }
+    /* Fassaden-Texturen in Kachel 06 */
+    .texturen { margin-top: 16px; }
+    .texturen h3 { font-size: 14px; margin: 0 0 6px; }
+    #texturen { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
+    .textur-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+    .textur-zeile select { max-width: 60%; }
+    .textur-eigene { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; font-size: 13px; }
+    .textur-eigene input { width: 64px; }
+    .kachel.aktiv .texturen .klein { color: #fff; }
+    /* Gravur in der Vorschau etwas zarter, damit die Schnittlinien gut sichtbar bleiben */
+    :is(.platte, #lupe) svg g[data-art="gravur"] path { stroke-width: 0.6px; opacity: 0.75; }
     .gruppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
     .gruppe-wahl, .teil-wahl { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .gruppe-wahl {
@@ -728,6 +739,18 @@
         <!-- Nur sichtbar, wenn eine Treppe mit Seitenteilen (Wangen) gefunden wurde -->
         <button class="schalter" id="wangen-schalter" role="switch" aria-checked="true" hidden
           title="Die Zickzack-Seitenteile der Treppe mit ausschneiden oder weglassen"><span class="spur"><span class="knopf"></span></span>Treppenwangen mit ausschneiden</button>
+        <!-- Fassaden-Textur je Gruppe: wird als feine Linie in der Gravur-Farbe auf die Außenseite gelasert -->
+        <div class="texturen" id="texturen-feld" hidden>
+          <h3>Fassaden-Textur (wird graviert)</h3>
+          <p class="klein" id="textur-hinweis"></p>
+          <div id="texturen"></div>
+          <div class="textur-eigene" id="textur-eigene" hidden>
+            <span>Eigene Strichdatei: <strong id="textur-datei">–</strong></span>
+            <button class="textbutton" id="textur-laden">andere Datei wählen</button>
+            <label>Musterbreite im Gebäude <input type="number" id="textur-breite" value="100" min="1" step="1" aria-label="Breite des Musters im Gebäude in cm"> cm</label>
+          </div>
+          <input type="file" id="textur-input" accept=".svg,image/svg+xml" hidden>
+        </div>
         <div class="eigene">
           <h3>Eigene Bauteile aus deiner Datei</h3>
           <div id="eigene-liste"><p class="klein">Sobald ein Modell geladen ist, stehen hier alle gefundenen Bauteile.</p></div>
@@ -1828,6 +1851,136 @@
       return einheiten;
     }
 
+    // ---------- 5g. Fassaden-Texturen als Gravur (Auswahl je Gruppe in Kachel 06) ----------
+    // Jede Textur ist ein Linienmuster in echten Maßen (mm im Gebäude). Es wird über das flach gelegte Teil
+    // gelegt und an seinem Umriss abgeschnitten (Fenster und Türen bleiben frei). Gelasert wird in der
+    // Gravur-Farbe aus Kachel 04 als feine Linie. Die Höhe 0 ist bei allen Wänden dieselbe – so laufen die
+    // Ziegelreihen ums Haus herum auf gleicher Höhe.
+    const reihen = (hoehe, laenge, versatz) => (x0, y0, x1, y1) => {   // Steine/Ziegel in Reihen (Läuferverband)
+      const l = [];
+      for (let j = Math.floor(y0 / hoehe); j * hoehe <= y1; j++) {
+        const y = j * hoehe;
+        l.push([[x0, y], [x1, y]]);                                       // Lagerfuge
+        const v = ((j % 2) + 2) % 2 ? versatz * laenge : 0;
+        for (let x = Math.floor((x0 - v) / laenge) * laenge + v; x <= x1; x += laenge) l.push([[x, y], [x, y + hoehe]]);   // Stoßfugen
+      }
+      return l;
+    };
+    const fugenRaster = (breite, hoehe) => (x0, y0, x1, y1) => {        // Fugenraster bzw. nur senkrechte Fugen
+      const l = [];
+      for (let x = Math.floor(x0 / breite) * breite; x <= x1; x += breite) l.push([[x, y0], [x, y1]]);
+      if (hoehe) for (let y = Math.floor(y0 / hoehe) * hoehe; y <= y1; y += hoehe) l.push([[x0, y], [x1, y]]);
+      return l;
+    };
+    const TEXTUREN = {
+      mauerwerk: { name: 'Mauerwerk (NF, Läuferverband)', linien: reihen(1000 / 12, 250, 0.5) },   // Schichthöhe 83,3 mm
+      klinker: { name: 'Klinker (DF, Läuferverband)', linien: reihen(62.5, 250, 0.5) },
+      holz: { name: 'Holzschalung (senkrechte Bretter 12 cm)', linien: fugenRaster(120, 0) },
+      platten: { name: 'Plattenfassade (125 × 62,5 cm)', linien: fugenRaster(1250, 625) },
+      dach: { name: 'Dachziegel (Reihen 33 cm, Ziegel 30 cm)', linien: reihen(330, 300, 0.5) },
+      eigene: { name: 'Eigene Strichdatei (SVG) …', linien: (x0, y0, x1, y1) => {
+        if (!eigeneTextur) return [];
+        const { segmente, w, h } = eigeneTextur, f = eigeneTexturBreite() / w, tw = w * f, th = h * f, l = [];
+        for (let i = Math.floor(x0 / tw); i * tw <= x1; i++) for (let j = Math.floor(y0 / th); j * th <= y1; j++) {
+          segmente.forEach(([[ax, ay], [bx, by]]) => l.push([[i * tw + ax * f, j * th + ay * f], [i * tw + bx * f, j * th + by * f]]));
+        }
+        return l;
+      } }
+    };
+    const texturen = {};                     // Gruppe → Textur-Schlüssel (fehlt = keine)
+    let eigeneTextur = null;                 // { name, segmente (y nach oben), w, h } aus einer hochgeladenen SVG
+    function eigeneTexturBreite() { return (parseFloat(document.getElementById('textur-breite')?.value) || 100) * 10; }   // cm → mm
+    function texturErlaubt(kanten) { return kanten === 'stumpf' || kanten === 'ausgleichen'; }
+    function texturVon(gruppe) {
+      const k = texturen[gruppe];
+      if (!k || (k === 'eigene' && !eigeneTextur)) return null;
+      return TEXTUREN[k];
+    }
+
+    // Muster über das Teil legen und am Umriss abschneiden. zuege in CAD-Einheiten; Ergebnis: Strecken in CAD-Einheiten
+    function texturLinien(zuege, textur, einheitMm) {
+      const alle = zuege.flat();
+      if (!alle.length) return [];
+      const x0 = Math.min(...alle.map(p => p[0])), x1 = Math.max(...alle.map(p => p[0]));
+      const y0 = Math.min(...alle.map(p => p[1])), y1 = Math.max(...alle.map(p => p[1]));
+      const muster = textur.linien(x0 * einheitMm, y0 * einheitMm, x1 * einheitMm, y1 * einheitMm)
+        .map(l => l.map(([x, y]) => [x / einheitMm, y / einheitMm]));
+      const kanten = [];
+      zuege.forEach(z => z.forEach((p, i) => kanten.push([p, z[(i + 1) % z.length]])));
+      const innen = pt => {                  // gerade/ungerade über alle Linienzüge → Löcher bleiben frei
+        let drin = false;
+        for (const [[xi, yi], [xj, yj]] of kanten) if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) drin = !drin;
+        return drin;
+      };
+      const ergebnis = [];
+      for (const [a, b] of muster) {
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        if (Math.hypot(dx, dy) < 1e-9) continue;
+        const ts = [0, 1];
+        for (const [c, d] of kanten) {      // Schnittpunkte mit dem Umriss
+          const ex = d[0] - c[0], ey = d[1] - c[1], nenner = dx * ey - dy * ex;
+          if (Math.abs(nenner) < 1e-12) continue;
+          const t = ((c[0] - a[0]) * ey - (c[1] - a[1]) * ex) / nenner, s = ((c[0] - a[0]) * dy - (c[1] - a[1]) * dx) / nenner;
+          if (t > 0 && t < 1 && s >= 0 && s <= 1) ts.push(t);
+        }
+        ts.sort((p, q) => p - q);
+        let start = null;
+        for (let i = 0; i + 1 < ts.length; i++) {
+          const m = (ts[i] + ts[i + 1]) / 2;
+          const drin = ts[i + 1] - ts[i] > 1e-9 && innen([a[0] + dx * m, a[1] + dy * m]);
+          if (drin && start === null) start = ts[i];
+          if (!drin && start !== null) { ergebnis.push([[a[0] + dx * start, a[1] + dy * start], [a[0] + dx * ts[i], a[1] + dy * ts[i]]]); start = null; }
+        }
+        if (start !== null) ergebnis.push([[a[0] + dx * start, a[1] + dy * start], b]);
+      }
+      return ergebnis;
+    }
+
+    // Eigene Textur: SVG mit Linien lesen (line, polyline, polygon, rect und path mit geraden Stücken)
+    function strichdateiLesen(text, name) {
+      const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+      const svg = doc.querySelector('svg');
+      if (!svg) return null;
+      const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+      const w = vb.length === 4 && vb[2] > 0 ? vb[2] : parseFloat(svg.getAttribute('width')) || 100;
+      const h = vb.length === 4 && vb[3] > 0 ? vb[3] : parseFloat(svg.getAttribute('height')) || 100;
+      const ox = vb.length === 4 ? vb[0] : 0, oy = vb.length === 4 ? vb[1] : 0;
+      const segmente = [];
+      const zug = (punkte, zu) => {
+        const p = punkte.map(([x, y]) => [x - ox, h - (y - oy)]);           // SVG zählt nach unten → umdrehen
+        for (let i = 0; i + 1 < p.length; i++) segmente.push([p[i], p[i + 1]]);
+        if (zu && p.length > 2) segmente.push([p[p.length - 1], p[0]]);
+      };
+      const zahlen = s => (s || '').trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+      doc.querySelectorAll('line').forEach(e => zug([[+e.getAttribute('x1'), +e.getAttribute('y1')], [+e.getAttribute('x2'), +e.getAttribute('y2')]], false));
+      doc.querySelectorAll('polyline, polygon').forEach(e => {
+        const z = zahlen(e.getAttribute('points')), p = [];
+        for (let i = 0; i + 1 < z.length; i += 2) p.push([z[i], z[i + 1]]);
+        zug(p, e.tagName.toLowerCase() === 'polygon');
+      });
+      doc.querySelectorAll('rect').forEach(e => {
+        const x = +e.getAttribute('x') || 0, y = +e.getAttribute('y') || 0, b = +e.getAttribute('width'), hh = +e.getAttribute('height');
+        zug([[x, y], [x + b, y], [x + b, y + hh], [x, y + hh]], true);
+      });
+      doc.querySelectorAll('path').forEach(e => {              // M, L, H, V, Z (groß und klein); Kurven werden übersprungen
+        const teile = (e.getAttribute('d') || '').match(/[MLHVZmlhvz][^MLHVZmlhvzCSQTAcsqta]*/g) || [];
+        let p = [], x = 0, y = 0, sx = 0, sy = 0;
+        for (const t of teile) {
+          const c = t[0], z = zahlen(t.slice(1)), rel = c === c.toLowerCase();
+          if (c === 'M' || c === 'm') {
+            if (p.length > 1) zug(p, false);
+            for (let i = 0; i + 1 < z.length; i += 2) { x = rel ? x + z[i] : z[i]; y = rel ? y + z[i + 1] : z[i + 1]; if (i === 0) { p = [[x, y]]; sx = x; sy = y; } else p.push([x, y]); }
+          } else if (c === 'L' || c === 'l') {
+            for (let i = 0; i + 1 < z.length; i += 2) { x = rel ? x + z[i] : z[i]; y = rel ? y + z[i + 1] : z[i + 1]; p.push([x, y]); }
+          } else if (c === 'H' || c === 'h') { z.forEach(v => { x = rel ? x + v : v; p.push([x, y]); }); }
+          else if (c === 'V' || c === 'v') { z.forEach(v => { y = rel ? y + v : v; p.push([x, y]); }); }
+          else { p.push([sx, sy]); zug(p, false); p = []; x = sx; y = sy; }
+        }
+        if (p.length > 1) zug(p, false);
+      });
+      return segmente.length ? { name, segmente, w, h } : null;
+    }
+
     // Punkte, die mitten auf einer geraden Linie liegen, braucht der Laser nicht
     function geradePunkteEntfernen(zug, toleranz) {
       let geaendert = true;
@@ -1900,7 +2053,9 @@
       const alle = zuege.flat();
       const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
       const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
-      return { ...teil, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, winkel: grad, ai, raster: new Map() };
+      const gedreht = { ...teil, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, winkel: grad, ai, raster: new Map() };
+      if (teil.gravur) gedreht.gravur = teil.gravur.map(l => l.map(rot));   // Textur dreht mit
+      return gedreht;
     }
 
     // Teil rastern: pro Kästchenzeile die belegten Bereiche [von, bis]. „fuss“ = die echte
@@ -2152,15 +2307,21 @@
           const r = gehrung(t, dicke / faktor);
           zuege = r.zuege; ritzen = r.ritzen; anzahl = r.anzahl;
         }
-        // Bei der Gehrung liegt die Innenseite (mit Anritzlinie) im Laser oben → ggf. spiegeln
-        const sx = e.kanten === 'gehrung' && t.vonAussen ? -faktor : faktor;
+        // Fassaden-Textur (Kachel 06) als Gravur – nur ohne Anritzen und Falten, also bei „stumpf“ und „ausgleichen“
+        const textur = texturErlaubt(e.kanten) && !t.netz ? texturVon(t.gruppe) : null;
+        let gravur = textur ? texturLinien(zuege, textur, e.einheitMm) : [];
+        // Bei der Gehrung liegt die Innenseite (mit Anritzlinie) im Laser oben → ggf. spiegeln.
+        // Mit Textur muss die Außenseite oben liegen (dort wird graviert) → ggf. andersherum spiegeln.
+        const sx = (e.kanten === 'gehrung' && t.vonAussen) || (textur && t.vonAussen === false) ? -faktor : faktor;
         const umrechnen = ([x, y]) => [x * sx, y * faktor];
         zuege = zuege.map(z => z.map(umrechnen));
         ritzen = ritzen.map(l => l.map(umrechnen));
+        gravur = gravur.map(l => l.map(umrechnen));
         const alle = zuege.flat();
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
         const teil = { name: t.name, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+        if (gravur.length) teil.gravur = gravur;
         if (t.nrs && t.nrs.length > 1) teil.nrs = t.nrs;
         merk.set(t, teil);
         return teil;
@@ -2289,6 +2450,13 @@
       meldung.className = meldungen.length ? '' : 'ok';
       meldung.textContent = meldungen.length ? meldungen.join(' ')
         : `Alle ${anzahlTeile} Teile passen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}.`;
+      texturZustand();
+      if (Object.keys(texturen).length && !texturErlaubt(e.kanten)) {
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--grau)';
+        extra.textContent = ' Fassaden-Texturen werden nur bei „stumpf“ oder „Materialstärke ausgleichen“ graviert.';
+        meldung.appendChild(extra);
+      }
       if (doppeltEntfernt) {
         const extra = document.createElement('span');
         extra.style.color = 'var(--grau)';
@@ -2391,10 +2559,11 @@
     // Nur in der Vorschau (nicht in der Laserdatei): jedes Teil bekommt Nummer + Name,
     // und jedes Teil weiß, zu welchem Bauteil es gehört (zum Hervorheben mit der Maus)
     function teileBeschriften(svg, p) {
-      const [schnitt, ritz] = svg.querySelectorAll('g');
+      const [schnitt, ritz] = [...svg.querySelectorAll('g')].filter(g => g.dataset.art !== 'gravur');
       const schnittPfade = schnitt ? [...schnitt.querySelectorAll('path')] : [];
       const ritzPfade = ritz ? [...ritz.querySelectorAll('path')] : [];
-      let ri = 0;
+      const gravurPfade = [...svg.querySelectorAll('g[data-art="gravur"] path')];
+      let ri = 0, gi = 0;
       p.platziert.forEach(({ teil, x, y, quelle }, i) => {
         const pfad = schnittPfade[i];
         if (!pfad || !quelle) return;
@@ -2408,6 +2577,7 @@
           if (nrs) ritzPfade[ri].dataset.nrs = nrs;
           ri++;
         }
+        if (teil.gravur && teil.gravur.length && gravurPfade[gi]) gravurPfade[gi++].dataset.nr = nr;
         // Beschriftung in die Mitte des Außenumrisses (Schwerpunkt), Größe passend zum Teil
         const z = teil.zuege[teil.ai ?? aussenIndex(teil.zuege)].map(([px, py]) => [x + px - teil.minX, y + teil.maxY - py]);
         let A = 0, cx = 0, cy = 0;
@@ -2468,8 +2638,71 @@
         });
         eigene.append(titel, liste);
       });
+      texturenZeichnen();
       auswahlAktualisieren(false);
     }
+
+    // ---------- 6g. Fassaden-Textur je Gruppe (Kachel 06) ----------
+    let texturWartet = null;                 // Gruppe, für die gerade eine eigene Strichdatei gewählt wird
+    function texturenZeichnen() {
+      const feld = document.getElementById('texturen');
+      feld.innerHTML = '';
+      const vorhanden = GRUPPEN.filter(g => flacheTeile.some(t => t.gruppe === g.id));
+      document.getElementById('texturen-feld').hidden = !vorhanden.length;
+      vorhanden.forEach(g => {
+        const zeile = document.createElement('label');
+        zeile.className = 'textur-zeile';
+        zeile.innerHTML = '<span></span><select></select>';
+        zeile.querySelector('span').textContent = g.name;
+        const auswahl = zeile.querySelector('select');
+        auswahl.dataset.gruppe = g.id;
+        auswahl.add(new Option('keine', ''));
+        Object.entries(TEXTUREN).forEach(([k, t]) => auswahl.add(new Option(k === 'eigene' && eigeneTextur ? `Eigene: ${eigeneTextur.name}` : t.name, k)));
+        auswahl.value = texturen[g.id] || '';
+        feld.appendChild(zeile);
+      });
+      texturZustand();
+    }
+    // Ausgegraut, wenn in Kachel 05 Gehrung oder Auffalten gewählt ist (dort liegt die Innenseite oben bzw. wird gefaltet)
+    function texturZustand() {
+      const erlaubt = texturErlaubt(document.getElementById('kanten').value);
+      document.querySelectorAll('#texturen select').forEach(s => { s.disabled = !erlaubt; });
+      document.getElementById('textur-hinweis').textContent = erlaubt
+        ? 'Das Muster kommt maßstabsgerecht auf die Außenseite (Teile werden dafür bei Bedarf gespiegelt). Fenster und Türen bleiben frei.'
+        : 'Texturen gehen nur mit „stumpf“ oder „Materialstärke ausgleichen“ (Kachel 05) – bei Gehrung und Auffalten wird angeritzt bzw. gefaltet.';
+      const eigene = Object.values(texturen).includes('eigene');
+      document.getElementById('textur-eigene').hidden = !eigene;
+      document.getElementById('textur-datei').textContent = eigeneTextur ? eigeneTextur.name : '–';
+    }
+    document.getElementById('texturen').addEventListener('change', ev => {
+      const g = ev.target.dataset.gruppe;
+      if (!g) return;
+      if (ev.target.value === 'eigene' && !eigeneTextur) {      // noch keine eigene Datei → erst eine wählen
+        texturWartet = g;
+        ev.target.value = texturen[g] || '';
+        document.getElementById('textur-input').click();
+        return;
+      }
+      if (ev.target.value) texturen[g] = ev.target.value; else delete texturen[g];
+      texturZustand();
+      laserNeuBerechnen();
+    });
+    document.getElementById('textur-laden').addEventListener('click', () => document.getElementById('textur-input').click());
+    document.getElementById('textur-input').addEventListener('change', async ev => {
+      const datei = ev.target.files[0];
+      ev.target.value = '';
+      if (!datei) return;
+      const muster = strichdateiLesen(await datei.text(), datei.name);
+      if (!muster) {
+        document.getElementById('textur-hinweis').textContent = 'In dieser Datei wurden keine Linien gefunden. Bitte eine SVG mit Linien (ohne Kurven) wählen.';
+        return;
+      }
+      eigeneTextur = muster;
+      if (texturWartet) { texturen[texturWartet] = 'eigene'; texturWartet = null; }
+      texturenZeichnen();
+      laserNeuBerechnen();
+    });
+    document.getElementById('textur-breite').addEventListener('input', laserNeuBerechnen);
 
     // Häkchen an die Auswahl anpassen; neu = true → auch neu rechnen
     function auswahlAktualisieren(neu = true) {
@@ -2865,6 +3098,14 @@
         const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];
         teile[i].ritz = (teil.ritzen || []).flatMap(l => pruefen(l.map(lage), false));
       });
+      // Gravur (Fassaden-Textur): was genau auf einer Schnitt- oder Anritzlinie liegt (z. B. die unterste Fuge
+      // auf der Unterkante), fällt weg. Das zählt nicht als Fehler, darum ohne Meldung.
+      const fehler = entfernt;
+      platziert.forEach(({ teil, x, y }, i) => {
+        const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];
+        teile[i].gravur = (teil.gravur || []).flatMap(([a, b]) => rest(lage(a), lage(b))).map(s => ({ punkte: s, zu: false }));
+      });
+      entfernt = fehler;
       return { entfernt, teile };
     }
 
@@ -2894,13 +3135,21 @@
   <g fill="none" stroke="${rgb(farben.anritzen)}" stroke-width="0.01">
 ${ritzPfade}
   </g>` : '';
+      // Gravur (Fassaden-Textur aus Kachel 06): eigene Gruppe in der Gravur-Farbe, nur wenn es welche gibt
+      const gravurPfade = platziert.map((q, i) => [q, i]).filter(([{ teil }]) => teil.gravur && teil.gravur.length).map(([{ teil }, i]) =>
+        `    <path data-teil="${schutz(teil.name)}" d="${bereinigt(doppelt.teile[i].gravur)}"/>`).join('\n');
+      const gravurGruppe = gravurPfade ? `
+  <!-- ${farbname(farben.gravur)} = Gravur (Fassaden-Textur, feine Linien) -->
+  <g fill="none" stroke="${rgb(farben.gravur)}" stroke-width="0.01" data-art="gravur">
+${gravurPfade}
+  </g>` : '';
       return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${f(breite)}mm" height="${f(hoehe)}mm" viewBox="0 0 ${f(breite)} ${f(hoehe)}">
   <!-- LaserPrep: ${farbname(farben.orientierung)} = Orientierungsrahmen (Platte), ${farbname(farben.schneiden)} = Schneiden, Haarlinien -->
   <rect x="0" y="0" width="${f(breite)}" height="${f(hoehe)}" fill="none" stroke="${rgb(farben.orientierung)}" stroke-width="0.01"/>
   <g fill="none" stroke="${rgb(farben.schneiden)}" stroke-width="0.01">
 ${pfade}
-  </g>${ritzGruppe}
+  </g>${ritzGruppe}${gravurGruppe}
 </svg>
 `;
     }
@@ -2922,7 +3171,7 @@ ${pfade}
       const zeilen = [];
       const gruppe = (code, wert) => zeilen.push(String(code), String(wert));
       const ebenen = [['ORIENTIERUNG', aciFarbe(farben.orientierung)], ['SCHNEIDEN', aciFarbe(farben.schneiden)],
-        ['ANRITZEN', aciFarbe(farben.anritzen)]];
+        ['ANRITZEN', aciFarbe(farben.anritzen)], ['GRAVUR', aciFarbe(farben.gravur)]];
       const farbeVon = Object.fromEntries(ebenen);
       // Linienzug; y wird umgedreht (DXF zählt nach oben, die Vorschau nach unten)
       const linienzug = (ebene, punkte, zu) => {
@@ -2948,9 +3197,10 @@ ${pfade}
       gruppe(0, 'SECTION'); gruppe(2, 'ENTITIES');
       linienzug('ORIENTIERUNG', [[0, 0], [breite, 0], [breite, hoehe], [0, hoehe]], true);   // Plattenrahmen
       // Linien wie in der SVG (Platten-mm), doppelte Linien schon entfernt (siehe 7a)
-      doppelteLinien(platziert).teile.forEach(({ schnitt, ritz }) => {
+      doppelteLinien(platziert).teile.forEach(({ schnitt, ritz, gravur }) => {
         schnitt.forEach(({ punkte, zu }) => linienzug('SCHNEIDEN', punkte, zu));
         ritz.forEach(({ punkte, zu }) => linienzug('ANRITZEN', punkte, zu));
+        gravur.forEach(({ punkte, zu }) => linienzug('GRAVUR', punkte, zu));
       });
       gruppe(0, 'ENDSEC');
       gruppe(0, 'EOF');
