@@ -291,6 +291,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   leichten grauen Schatten. Auf Touch-Geräten gibt es weder Lupe noch Knopf.
   Getestet: aus → keine Lupe, an → Lupe erscheint, wieder aus → Lupe verschwindet.
 
+- 17.11.: **Lupen-Schalter als Schiebeschalter.** Statt des Knopfs „Lupe: aus / an“ gibt es jetzt einen runden
+  Schalter mit dem Wort „Lupe“: aus = Knopf links (Spur halb durchsichtig weiß), an = Knopf springt nach rechts
+  und wird orange auf weißer Spur (auf weißem Grund: orange Spur). Für Screenreader als „Schalter“ gekennzeichnet.
+  Getestet: Klick schaltet an (Knopf nach rechts) und wieder aus (Knopf zurück).
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

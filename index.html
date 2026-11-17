@@ -281,6 +281,21 @@
       background: #fff; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);   /* kein farbiger Rand, nur ein leichter Schatten */
       pointer-events: none; z-index: 50; display: none; }
     #lupe.sichtbar { display: block; }
+    /* Schiebeschalter „Lupe“: runder Knopf springt von links (aus) nach rechts (an) */
+    .schalter { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0;
+      font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
+    .schalter[hidden] { display: none; }
+    .schalter .spur { position: relative; width: 40px; height: 22px; border-radius: 11px; background: #ccc;
+      transition: background 0.2s; flex: none; }
+    .schalter .knopf { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s, background 0.2s; }
+    .schalter[aria-checked="true"] .spur { background: var(--akzent); }
+    .schalter[aria-checked="true"] .knopf { transform: translateX(18px); }
+    /* in der orangen (aktiven) Kachel: Spur halb durchsichtig weiß, „an“ = weiße Spur mit orangem Knopf */
+    .kachel.aktiv .schalter .spur { background: rgba(255, 255, 255, 0.35); }
+    .kachel.aktiv .schalter[aria-checked="true"] .spur { background: #fff; }
+    .kachel.aktiv .schalter[aria-checked="true"] .knopf { background: var(--akzent); }
+    .schalter:focus-visible .spur { outline: 2px solid currentColor; outline-offset: 2px; }
     /* Die Kopie in der Lupe darf die Maus nie „abfangen“ – sonst verschwindet die Lupe kurz (Flackern) */
     #lupe * { pointer-events: none !important; transition: none !important; }
     #lupe svg { position: absolute; left: 0; top: 0; max-height: none; transform-origin: 0 0; }
@@ -613,8 +628,8 @@
           <label class="abstand-feld">Abstand
             <input type="number" id="abstand" value="5" min="0" step="0.5" aria-label="Abstand zwischen den Teilen in mm"> mm
           </label>
-          <button class="button zweit klein-button" id="lupe-schalter" aria-pressed="false" hidden
-            title="Lupe über den Platten ein- oder ausschalten">Lupe: aus</button>
+          <button class="schalter" id="lupe-schalter" role="switch" aria-checked="false" hidden
+            title="Lupe über den Platten ein- oder ausschalten"><span class="spur"><span class="knopf"></span></span>Lupe</button>
           <p id="meldung"></p>
           <button class="button" id="herunterladen">SVG herunterladen</button>
         </div>
@@ -2303,8 +2318,7 @@
       let lupeAn = false;
       try { lupeAn = localStorage.getItem('laserprep-lupe') === 'an'; } catch (e) { /* egal */ }
       const schalterZeigen = () => {
-        schalter.textContent = lupeAn ? 'Lupe: an' : 'Lupe: aus';
-        schalter.setAttribute('aria-pressed', String(lupeAn));
+        schalter.setAttribute('aria-checked', String(lupeAn));
         if (!lupeAn) lupe.classList.remove('sichtbar');
       };
       schalter.hidden = false;
