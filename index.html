@@ -231,6 +231,23 @@
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
+
+    /* Mauszeiger als Punkt: orange auf hellen Flächen, weiß auf Orange.
+       Nur mit echter Maus – auf Touch-Geräten bleibt alles wie gewohnt. */
+    html.punkt, html.punkt * { cursor: none !important; }
+    #punkt {
+      position: fixed; left: 0; top: 0; z-index: 1000;
+      width: 12px; height: 12px; margin: -6px 0 0 -6px;
+      border-radius: 50%;
+      background: var(--akzent);
+      pointer-events: none;
+      opacity: 0;
+      transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s;
+    }
+    #punkt.sichtbar { opacity: 1; }
+    #punkt.weiss { background: #fff; }
+    /* Über Buttons, Feldern und anklickbaren Kacheln wird der Punkt etwas größer */
+    #punkt.gross { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
   </style>
 
   <!-- three.js (MIT-Lizenz) in fester Version vom CDN -->
@@ -244,6 +261,7 @@
   </script>
 </head>
 <body>
+  <div id="punkt" aria-hidden="true"></div>
   <header>
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
@@ -1194,6 +1212,40 @@ ${pfade}
       document.body.classList.remove('ziehen');
       ladeDatei(e.dataTransfer.files[0]);
     });
+
+    // ---------- 8. Mauszeiger als Punkt ----------
+    // Der Punkt folgt der Maus. Unter dem Punkt wird die Hintergrundfarbe gesucht:
+    // ist sie orange, wird der Punkt weiß, sonst orange.
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      const punkt = document.getElementById('punkt');
+      document.documentElement.classList.add('punkt');
+      const aufOrange = el => {
+        for (; el && el !== document.documentElement; el = el.parentElement) {
+          const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([^)]+)\)/);
+          if (!m) continue;
+          const [r, g, b, a = 1] = m[1].split(',').map(Number);
+          if (a < 0.5) continue;                     // durchsichtig → weiter nach außen schauen
+          return r > 200 && g > 60 && g < 150 && b < 60;
+        }
+        return false;
+      };
+      let maus = null, geplant = false;
+      addEventListener('mousemove', ev => {
+        maus = ev;
+        if (geplant) return;
+        geplant = true;
+        requestAnimationFrame(() => {             // höchstens einmal pro Bild rechnen
+          geplant = false;
+          punkt.style.transform = `translate(${maus.clientX}px, ${maus.clientY}px)`;
+          const el = document.elementFromPoint(maus.clientX, maus.clientY);
+          punkt.classList.toggle('weiss', aufOrange(el));
+          punkt.classList.toggle('gross', !!el?.closest('button, a, select, input, .erledigt'));
+          punkt.classList.add('sichtbar');
+        });
+      });
+      // Maus verlässt das Fenster → Punkt ausblenden
+      document.addEventListener('mouseout', ev => { if (!ev.relatedTarget) punkt.classList.remove('sichtbar'); });
+    }
 
     // Start: Schritt 01 (Pappe) ist offen, die Vorschau zeigt schon die leere Platte
     pappenZeichnen();
