@@ -45,7 +45,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [ ] Auswahl „Kanten“ – wie Platten an Ecken zusammenstoßen:
   - [x] stumpf (Umrisse wie flach gelegt)
   - [x] Materialstärke ausgleichen (Stoß auf Außenkante, größere Platte läuft durch)
-  - [ ] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
+  - [x] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
   - [ ] Auffalten (Flächen als ein Stück, Knicke blau)
 - [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
 - [ ] Fugen/Fensterlinien auf Fassaden als Gravur übernehmen
@@ -192,10 +192,19 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   „Gehrung von Hand“ und „Auffalten“ sind schon zu sehen, aber als „kommt bald“ gesperrt. Kachel 05 geht dafür
   jetzt über die ganze Breite, die Bauteilliste (06) steht darunter.
 
+- 17.11.: **Gehrung von Hand** fertig (Karte in Kachel 05 freigeschaltet). An jedem Stoß gehen beide Platten bis zur
+  äußeren Ecklinie; das ist die rote Schnittkante. Auf der Innenseite liegt eine blaue Anritzlinie im Abstand
+  Dicke ÷ tan(Innenwinkel ÷ 2) von der Kante – bei 90° genau 1 × Pappdicke, an den Walmdach-Graten (132°) 0,45 ×,
+  am First (110°) 0,7 ×. Von der Linie bis zur Kante wird schräg abgeschliffen. Damit die angeritzte Seite nach
+  innen kommt, werden Teile, deren flache Ansicht die Außenseite zeigt, gespiegelt. Freie Kanten, Tür-/Fensterkanten
+  und Löcher bekommen keine Linie. In der SVG steht eine eigene Gruppe in der Anritz-Farbe aus Kachel 04.
+  Getestet (1:50, 2 mm): OBJ-Testhaus Wände 120 × 68 / 80 × 68 mm, Linien 2 mm innen, an der Tür unterbrochen;
+  Walmdach: Dachdreiecke 91,4 × 55,8 mm, Linien parallel zu den Graten. Stumpf bleibt unverändert (keine blaue Gruppe).
+
 ## Nächste Schritte
 1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
 2. Wirklich platzsparend anordnen (statt zeilenweise).
 3. Doppelte Linien entfernen.
 4. DXF-Export.
 5. Echtes Archicad-Modell testen (OBJ und IFC).
-6. Kanten: „Gehrung von Hand“, danach „Auffalten“ (Kachel 05).
+6. Kanten: „Auffalten“ (Kachel 05).

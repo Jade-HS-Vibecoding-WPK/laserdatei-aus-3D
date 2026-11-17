@@ -480,9 +480,9 @@
             </svg>
             <span class="text">Die kleinere Platte wird um die Pappdicke gekürzt und sitzt auf der größeren – außen bündig.</span>
           </label>
-          <label class="variante gesperrt-variante">
-            <input type="radio" name="kanten-wahl" value="gehrung" disabled>
-            <span class="variante-kopf"><strong>Gehrung von Hand</strong><span class="marke">kommt bald</span></span>
+          <label class="variante">
+            <input type="radio" name="kanten-wahl" value="gehrung">
+            <span class="variante-kopf"><strong>Gehrung von Hand</strong><span class="marke"></span></span>
             <svg class="skizze" viewBox="0 0 200 90" aria-hidden="true">
               <polygon class="schnitt" points="10,70 80,70 80,62 18,62"/>
               <polygon class="schnitt" points="10,12 18,12 18,62 10,70"/>
@@ -793,9 +793,11 @@
         const feld = kachel.querySelector('[data-zusammenfassung]');
         if (feld) feld.textContent = texte[i];
       });
-      document.getElementById('kanten-hilfe').textContent = e.kanten === 'ausgleichen'
-        ? `Die größere Platte läuft durch, die kleinere wird um die Dicke ihrer Pappe (aus 01 Pappe) gekürzt – außen ist alles bündig.`
-        : 'Die Teile werden so ausgeschnitten, wie sie im Modell flach liegen.';
+      document.getElementById('kanten-hilfe').textContent = {
+        ausgleichen: 'Die größere Platte läuft durch, die kleinere wird um die Dicke ihrer Pappe (aus 01 Pappe) gekürzt – außen ist alles bündig.',
+        gehrung: 'Alle Platten gehen bis zur Außenkante. Die blaue Linie liegt auf der Innenseite: von ihr bis zur Kante schräg abschleifen ' +
+          '(bei rechten Winkeln 45°). Die Teile sind so gespiegelt, dass die angeritzte Seite nach innen kommt.'
+      }[e.kanten] || 'Die Teile werden so ausgeschnitten, wie sie im Modell flach liegen.';
     }
 
     function weiter(i) {
@@ -967,6 +969,9 @@
         const schwer = ecken.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(ecken.length);
         Object.assign(info, { N, c: max, T: max - min, ecken, schwer, flaeche: f.flaeche });
         info.teil.aussen = aussen;
+        // Für die Gehrung: Zeigt die flach gelegte Ansicht die Außenseite? Dann wird das Teil
+        // später gespiegelt, damit die (angeritzte) Innenseite im Laser oben liegt.
+        info.teil.vonAussen = f.n.dot(N) > 0;
       });
 
       // Punkte eines Teils, die nah an der Ecklinie (Punkt X, Richtung D) liegen
@@ -1029,7 +1034,7 @@
               const m2 = [m.dot(B.flach.u), m.dot(B.flach.v)];
               const l = Math.hypot(m2[0], m2[1]);
               bester = { X2: [X.dot(B.flach.u), X.dot(B.flach.v)], m2: [m2[0] / l, m2[1] / l],
-                         faktor, mit: A.teil.name, winkel: Math.round(phi * 180 / Math.PI) };
+                         faktor, phi, mit: A.teil.name, winkel: Math.round(phi * 180 / Math.PI) };
             }
           });
           B.teil.stoesse[k] = bester;
@@ -1052,13 +1057,35 @@
     // behalten ihre Richtung, die Ecken werden neu geschnitten. Löcher bleiben, wie sie sind.
     function kantenAusgleichen(teil, dicke) {
       if (teil.aussen < 0) return { zuege: teil.zuege, anzahl: 0 };
+      const r = umrissVerschieben(teil, s => s.faktor * dicke);
+      return { zuege: teil.zuege.map((zug, i) => (i === teil.aussen ? r.umriss : zug)), anzahl: r.anzahl };
+    }
+
+    // ---------- 5d. Gehrung von Hand ----------
+    // Beide Platten gehen an jedem Stoß bis zur äußeren Ecklinie (Schnitt = Außenkante).
+    // Auf der Innenseite endet die Platte früher: bei einem Innenwinkel φ um
+    // Dicke / tan(φ/2) (bei 90° genau 1 × Dicke). Dort liegt die blaue Anritzlinie –
+    // von ihr bis zur Kante wird schräg abgeschliffen.
+    function gehrung(teil, dicke) {
+      if (teil.aussen < 0) return { zuege: teil.zuege, ritzen: [], anzahl: 0 };
+      const aussen = umrissVerschieben(teil, () => 0);
+      const innen = umrissVerschieben(teil, s => dicke / Math.tan(s.phi / 2));
+      const ritzen = [];
+      const n = innen.umriss.length;
+      teil.stoesse.forEach((s, k) => { if (s) ritzen.push([innen.umriss[k], innen.umriss[(k + 1) % n]]); });
+      return { zuege: teil.zuege.map((zug, i) => (i === teil.aussen ? aussen.umriss : zug)), ritzen, anzahl: aussen.anzahl };
+    }
+
+    // Außenumriss eines Teils: jede Kante mit Stoß wird parallel auf den Abstand
+    // abstand(stoß) von der äußeren Ecklinie gesetzt, die Ecken werden neu geschnitten.
+    function umrissVerschieben(teil, abstand) {
       const z = teil.zuege[teil.aussen], n = z.length;
       let anzahl = 0;
       const linien = z.map((p, k) => {
         const q = z[(k + 1) % n], s = teil.stoesse[k];
         if (!s) return { p, d: [q[0] - p[0], q[1] - p[1]], fest: true };
         anzahl++;
-        const a = s.faktor * dicke;
+        const a = abstand(s);
         return { p: [s.X2[0] + s.m2[0] * a, s.X2[1] + s.m2[1] * a], d: [-s.m2[1], s.m2[0]], fest: false };
       });
       const neu = z.map((p, i) => {
@@ -1074,7 +1101,7 @@
         const t = ((l2.p[0] - l1.p[0]) * l2.d[1] - (l2.p[1] - l1.p[1]) * l2.d[0]) / det;
         return [l1.p[0] + t * l1.d[0], l1.p[1] + t * l1.d[1]];
       });
-      return { zuege: teil.zuege.map((zug, i) => (i === teil.aussen ? neu : zug)), anzahl };
+      return { umriss: neu, anzahl };
     }
 
     // Punkte, die mitten auf einer geraden Linie liegen, braucht der Laser nicht
@@ -1191,16 +1218,23 @@
         if (!speicher.has(dicke)) speicher.set(dicke, new Map());
         const merk = speicher.get(dicke);
         if (merk.has(t)) return merk.get(t);
-        let zuege = t.zuege, anzahl = 0;
+        let zuege = t.zuege, ritzen = [], anzahl = 0;
         if (e.kanten === 'ausgleichen') {
           const r = kantenAusgleichen(t, dicke / faktor);   // Dicke in mm → CAD-Einheiten
           zuege = r.zuege; anzahl = r.anzahl;
+        } else if (e.kanten === 'gehrung') {
+          const r = gehrung(t, dicke / faktor);
+          zuege = r.zuege; ritzen = r.ritzen; anzahl = r.anzahl;
         }
-        zuege = zuege.map(z => z.map(([x, y]) => [x * faktor, y * faktor]));
+        // Bei der Gehrung liegt die Innenseite (mit Anritzlinie) im Laser oben → ggf. spiegeln
+        const sx = e.kanten === 'gehrung' && t.vonAussen ? -faktor : faktor;
+        const umrechnen = ([x, y]) => [x * sx, y * faktor];
+        zuege = zuege.map(z => z.map(umrechnen));
+        ritzen = ritzen.map(l => l.map(umrechnen));
         const alle = zuege.flat();
         const minX = Math.min(...alle.map(p => p[0])), maxX = Math.max(...alle.map(p => p[0]));
         const minY = Math.min(...alle.map(p => p[1])), maxY = Math.max(...alle.map(p => p[1]));
-        const teil = { name: t.name, zuege, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
+        const teil = { name: t.name, zuege, ritzen, minX, maxY, b: maxX - minX, h: maxY - minY, anzahl };
         merk.set(t, teil);
         return teil;
       };
@@ -1310,10 +1344,12 @@
       meldung.className = meldungen.length ? '' : 'ok';
       meldung.textContent = meldungen.length ? meldungen.join(' ')
         : `Alle ${anzahlTeile} Teile passen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}.`;
-      if (e.kanten === 'ausgleichen') {
+      if (e.kanten === 'ausgleichen' || e.kanten === 'gehrung') {
         const extra = document.createElement('span');
         extra.style.color = 'var(--grau)';
-        extra.textContent = ` ${angepasst} Stoßkanten an die Pappdicke angepasst.`;
+        extra.textContent = e.kanten === 'ausgleichen'
+          ? ` ${angepasst} Stoßkanten an die Pappdicke angepasst.`
+          : ` ${angepasst} Gehrungskanten angeritzt – die angeritzte Seite ist die Innenseite.`;
         meldung.appendChild(extra);
       }
 
@@ -1459,13 +1495,25 @@
         ).join(' ');
         return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
       }).join('\n');
+      // Anritzlinien (Gehrung): eigene Gruppe in der Anritz-Farbe, nur wenn es welche gibt
+      const ritzPfade = platziert.filter(({ teil }) => teil.ritzen && teil.ritzen.length).map(({ teil, x, y }) => {
+        const d = teil.ritzen.map(l =>
+          'M' + l.map(([px, py]) => `${f(x + px - teil.minX)} ${f(y + teil.maxY - py)}`).join(' L')
+        ).join(' ');
+        return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
+      }).join('\n');
+      const ritzGruppe = ritzPfade ? `
+  <!-- ${farbname(farben.anritzen)} = Anritzen (Gehrung: von der Linie bis zur Kante schräg abschleifen) -->
+  <g fill="none" stroke="${rgb(farben.anritzen)}" stroke-width="0.01">
+${ritzPfade}
+  </g>` : '';
       return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${f(breite)}mm" height="${f(hoehe)}mm" viewBox="0 0 ${f(breite)} ${f(hoehe)}">
   <!-- LaserPrep: ${farbname(farben.orientierung)} = Orientierungsrahmen (Platte), ${farbname(farben.schneiden)} = Schneiden, Haarlinien -->
   <rect x="0" y="0" width="${f(breite)}" height="${f(hoehe)}" fill="none" stroke="${rgb(farben.orientierung)}" stroke-width="0.01"/>
   <g fill="none" stroke="${rgb(farben.schneiden)}" stroke-width="0.01">
 ${pfade}
-  </g>
+  </g>${ritzGruppe}
 </svg>
 `;
     }
