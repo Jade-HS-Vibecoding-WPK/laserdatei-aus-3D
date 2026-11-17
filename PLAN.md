@@ -28,7 +28,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(teilweise: Farben einstellbar; in der SVG gibt es bisher nur Schneiden + Orientierungsrahmen, Anritzen/Gravur folgen)*
 - [x] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(mehrere Sorten und Platten, Teile gedreht und dicht ineinander gelegt)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
-- [ ] Export als SVG und DXF *(SVG fertig, DXF fehlt)*
+- [x] Export als SVG und DXF *(DWG über DXF + AutoCAD „Speichern unter“)*
 
 ### Should (wäre gut)
 - [x] Aufbau als Bento-Grid: 7 Schritte nacheinander abfragen (01 Pappe, 02 Datei, 03 Maßstab, 04 Farben, 05 Gehrung, 06 Bauteile, 07 Vorschau)
@@ -376,8 +376,20 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - 17.11.: **Maßband als Mauszeiger wieder entfernt** (Wunsch der Nutzerin). Über den Platten bleibt der Mauszeiger
   der normale Punkt, auch wenn das Maßband an ist. Das Messen selbst (Schalter „Maßband“) bleibt unverändert.
 
+- 17.11.: **Download als SVG, DXF oder DWG** (Kachel 08). Neben dem Hauptknopf wählt man das Format mit drei
+  Knöpfen SVG | DXF | DWG; Hauptknopf und die kleinen Knöpfe an jeder Platte zeigen das gewählte Format.
+  **DXF** schreibt LaserPrep selbst als Text (älteste Fassung R12, die jedes Programm öffnet; 1 Einheit = 1 mm):
+  Ebenen ORIENTIERUNG (Plattenrahmen), SCHNEIDEN (geschlossene Linienzüge) und ANRITZEN, jeweils in der
+  AutoCAD-Grundfarbe, die der Farbe aus Kachel 04 am nächsten ist (Standard: gelb 2, rot 1, blau 5). Keine
+  Linienstärke = Haarlinie. **DWG** ist ein geschlossenes Autodesk-Format, das eine Webseite nicht sicher schreiben
+  kann (die einzige freie Bibliothek LibreDWG ist GPL und schreibt nur testweise) – darum kommt bei „DWG“ die
+  DXF-Datei mit dem Hinweis: in AutoCAD öffnen → „Speichern unter“ → „AutoCAD-Zeichnung (*.dwg)“ (Entscheidung
+  der Nutzerin). Die SVG ist unverändert.
+  Getestet (OBJ-Testhaus, Gehrung, 1:50): DXF mit 1 Rahmen, 7 Schnitt- und 25 Anritz-Linienzügen – genau so viele
+  wie in der SVG; Punkte stimmen (y gespiegelt: SVG 6/6 → DXF 6/444); Dateinamen …_1.svg / …_1.dxf; SVG Zeichen für
+  Zeichen wie vorher (9 Vergleichsfälle). In AutoCAD selbst noch nicht geöffnet.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
-3. DXF-Export.
-4. Echtes Archicad-Modell testen (OBJ und IFC).
+3. Echtes Archicad-Modell testen (OBJ und IFC).

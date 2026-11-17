@@ -363,6 +363,19 @@
     .vorschlag .info { color: var(--grau); }
     .kachel:not(.aktiv) .vorschlag { border: 1px solid var(--linie); }
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    /* Dateiformat: drei Knöpfe nebeneinander, der gewählte ist gefüllt */
+    .format { display: inline-flex; border: 1.5px solid var(--akzent); border-radius: var(--rund-klein); overflow: hidden; }
+    .format label { cursor: pointer; }
+    .format input { position: absolute; opacity: 0; pointer-events: none; }
+    .format span { display: block; padding: 8px 14px; font-size: 13px; font-weight: 700; color: var(--akzent); }
+    .format label + label span { border-left: 1.5px solid var(--akzent); }
+    .format input:checked + span { background: var(--akzent); color: #fff; }
+    .format input:focus-visible + span { outline: 2px solid currentColor; outline-offset: -4px; }
+    .kachel.aktiv .format, .kachel.aktiv .format label + label span { border-color: #fff; }
+    .kachel.aktiv .format span { color: #fff; }
+    .kachel.aktiv .format input:checked + span { background: #fff; color: var(--akzent); }
+    #format-hinweis { flex-basis: 100%; }
+    .kachel.aktiv #format-hinweis { color: #fff; }
     #meldung { flex: 1; font-size: 13px; line-height: 1.5; color: #c00; margin: 0; min-width: 240px; }
     #meldung.ok { color: var(--grau); }
     .abstand-feld { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
@@ -756,7 +769,16 @@
           <button class="schalter" id="mass-schalter" role="switch" aria-checked="false" hidden
             title="Maßband: Maus auf eine Kante zeigt ihre Länge; zwei Klicks messen eine Strecke (Esc löscht)"><span class="spur"><span class="knopf"></span></span>Maßband</button>
           <p id="meldung"></p>
+          <!-- Dateiformat zum Herunterladen -->
+          <div class="format" role="radiogroup" aria-label="Dateiformat">
+            <label><input type="radio" name="format" value="svg" checked><span>SVG</span></label>
+            <label><input type="radio" name="format" value="dxf"><span>DXF</span></label>
+            <label><input type="radio" name="format" value="dwg"><span>DWG</span></label>
+          </div>
           <button class="button" id="herunterladen">SVG herunterladen</button>
+          <p class="klein" id="format-hinweis" hidden>DWG ist ein geschlossenes Autodesk-Format, das eine Webseite nicht sicher
+            schreiben kann. Du bekommst darum eine DXF-Datei: in AutoCAD öffnen → „Speichern unter“ → „AutoCAD-Zeichnung (*.dwg)“.
+            Ebenen, Farben und Maße bleiben dabei erhalten.</p>
         </div>
       </div>
     </section>
@@ -2347,14 +2369,13 @@
           `${p.pappe.breite} × ${p.pappe.hoehe} mm · ${runde(p.pappe.dicke)} mm · ${p.platziert.length} Teile`;
         karte.querySelector('.bild').innerHTML = p.svg.replace(/^<\?xml[^>]*>\s*/, '');
         karte.querySelector('.bild svg').dataset.platte = platten.indexOf(p);   // fürs Maßband: welche Platte?
-        karte.querySelector('button').addEventListener('click', () => svgHerunterladen(p));
+        karte.querySelector('button').addEventListener('click', () => herunterladen(p));
         ort.appendChild(karte);
         teileBeschriften(karte.querySelector('.bild svg'), p);
       });
       hervorgehoben = -1;                      // neu gezeichnet → ausgewähltes Teil wieder hervorheben
       hervorheben(null);
-      document.getElementById('herunterladen').textContent =
-        platten.length === 1 ? 'SVG herunterladen' : `Alle ${platten.length} Platten herunterladen`;
+      formatZeigen();                          // Knöpfe: „SVG“ / „DXF“ / „DWG“
     }
 
     // Nur in der Vorschau (nicht in der Laserdatei): jedes Teil bekommt Nummer + Name,
@@ -2809,18 +2830,85 @@ ${pfade}
 `;
     }
 
-    // Dateiname z. B. testhaus_1-50_Graupappe_2.svg
-    function svgHerunterladen(p) {
+    // ---------- 7b. Die DXF-Datei als Text schreiben ----------
+    // DXF ist ein offenes Textformat, das AutoCAD und alle Laser-Programme lesen. Geschrieben wird die
+    // einfachste, älteste Fassung (R12), damit wirklich jedes Programm sie öffnet. 1 Einheit = 1 mm.
+    // Jede Funktion bekommt eine eigene Ebene (Layer) mit Farbe: SCHNEIDEN, ANRITZEN, ORIENTIERUNG.
+    // DXF kennt hier nur die AutoCAD-Grundfarben – gewählt wird die, die der Farbe aus Kachel 04 am nächsten ist.
+    const ACI = [[1, 255, 0, 0], [2, 255, 255, 0], [3, 0, 255, 0], [4, 0, 255, 255], [5, 0, 0, 255], [6, 255, 0, 255],
+      [7, 0, 0, 0], [8, 128, 128, 128], [9, 192, 192, 192]];
+    function aciFarbe(hex) {
+      const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+      if (r > 240 && g > 240 && b > 240) return 7;            // Weiß: in AutoCAD dieselbe Nummer wie Schwarz
+      return ACI.reduce((m, f) => ((f[1] - r) ** 2 + (f[2] - g) ** 2 + (f[3] - b) ** 2 < m.d ? { d: (f[1] - r) ** 2 + (f[2] - g) ** 2 + (f[3] - b) ** 2, n: f[0] } : m), { d: Infinity, n: 7 }).n;
+    }
+    function dxfErzeugen(platziert, breite, hoehe) {
+      const f = z => String(Math.round(z * 1000) / 1000);
+      const zeilen = [];
+      const gruppe = (code, wert) => zeilen.push(String(code), String(wert));
+      const ebenen = [['ORIENTIERUNG', aciFarbe(farben.orientierung)], ['SCHNEIDEN', aciFarbe(farben.schneiden)],
+        ['ANRITZEN', aciFarbe(farben.anritzen)]];
+      const farbeVon = Object.fromEntries(ebenen);
+      // Linienzug; y wird umgedreht (DXF zählt nach oben, die Vorschau nach unten)
+      const linienzug = (ebene, punkte, zu) => {
+        gruppe(0, 'POLYLINE'); gruppe(8, ebene); gruppe(62, farbeVon[ebene]); gruppe(66, 1);
+        gruppe(10, 0); gruppe(20, 0); gruppe(30, 0); gruppe(70, zu ? 1 : 0);
+        punkte.forEach(([x, y]) => { gruppe(0, 'VERTEX'); gruppe(8, ebene); gruppe(10, f(x)); gruppe(20, f(hoehe - y)); gruppe(30, 0); });
+        gruppe(0, 'SEQEND'); gruppe(8, ebene);
+      };
+      gruppe(0, 'SECTION'); gruppe(2, 'HEADER');
+      gruppe(9, '$ACADVER'); gruppe(1, 'AC1009');
+      gruppe(9, '$INSUNITS'); gruppe(70, 4);                        // Millimeter
+      gruppe(9, '$EXTMIN'); gruppe(10, 0); gruppe(20, 0);
+      gruppe(9, '$EXTMAX'); gruppe(10, f(breite)); gruppe(20, f(hoehe));
+      gruppe(0, 'ENDSEC');
+      gruppe(0, 'SECTION'); gruppe(2, 'TABLES');
+      gruppe(0, 'TABLE'); gruppe(2, 'LTYPE'); gruppe(70, 1);
+      gruppe(0, 'LTYPE'); gruppe(2, 'CONTINUOUS'); gruppe(70, 0); gruppe(3, 'Solid line'); gruppe(72, 65); gruppe(73, 0); gruppe(40, 0);
+      gruppe(0, 'ENDTAB');
+      gruppe(0, 'TABLE'); gruppe(2, 'LAYER'); gruppe(70, ebenen.length);
+      ebenen.forEach(([name, farbe]) => { gruppe(0, 'LAYER'); gruppe(2, name); gruppe(70, 0); gruppe(62, farbe); gruppe(6, 'CONTINUOUS'); });
+      gruppe(0, 'ENDTAB');
+      gruppe(0, 'ENDSEC');
+      gruppe(0, 'SECTION'); gruppe(2, 'ENTITIES');
+      linienzug('ORIENTIERUNG', [[0, 0], [breite, 0], [breite, hoehe], [0, hoehe]], true);   // Plattenrahmen
+      platziert.forEach(({ teil, x, y }) => {
+        const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];               // wie in der SVG
+        teil.zuege.forEach(z => linienzug('SCHNEIDEN', z.map(lage), true));
+        (teil.ritzen || []).forEach(l => linienzug('ANRITZEN', l.map(lage), false));
+      });
+      gruppe(0, 'ENDSEC');
+      gruppe(0, 'EOF');
+      return zeilen.join('\r\n') + '\r\n';
+    }
+
+    // ---------- 7c. Herunterladen: SVG, DXF oder DWG (Kachel 08) ----------
+    // DWG ist ein geschlossenes Autodesk-Format, das eine Webseite nicht sicher schreiben kann. Bei „DWG“ kommt
+    // darum die DXF-Datei; in AutoCAD öffnen und „Speichern unter → DWG“ (siehe Hinweis unter den Knöpfen).
+    function format() { return document.querySelector('input[name="format"]:checked')?.value || 'svg'; }
+    // Dateiname z. B. testhaus_1-50_Graupappe_2.svg bzw. .dxf
+    function herunterladen(p) {
       const e = einstellungen();
       const sorte = (p.pappe.name || '').trim().replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'Pappe';
+      const svg = format() === 'svg';
+      const inhalt = svg ? p.svg : dxfErzeugen(p.platziert, p.pappe.breite, p.pappe.hoehe);
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([p.svg], { type: 'image/svg+xml' }));
-      link.download = `${dateiBasis}_1-${e.massstab}_${sorte}_${p.nr}.svg`;
+      link.href = URL.createObjectURL(new Blob([inhalt], { type: svg ? 'image/svg+xml' : 'application/dxf' }));
+      link.download = `${dateiBasis}_1-${e.massstab}_${sorte}_${p.nr}.${svg ? 'svg' : 'dxf'}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
+    // Knopf-Beschriftungen und DWG-Hinweis an das gewählte Format anpassen
+    function formatZeigen() {
+      const name = { svg: 'SVG', dxf: 'DXF', dwg: 'DWG' }[format()];
+      document.querySelectorAll('.platte figcaption button').forEach(b => { b.textContent = name; });
+      document.getElementById('herunterladen').textContent =
+        platten.length === 1 ? `${name} herunterladen` : `Alle ${platten.length} Platten als ${name}`;
+      document.getElementById('format-hinweis').hidden = format() !== 'dwg';
+    }
+    document.querySelector('.format').addEventListener('change', formatZeigen);
 
     ['einheit', 'massstab', 'frei', 'kanten', 'abstand'].forEach(id =>
       document.getElementById(id).addEventListener('input', laserNeuBerechnen)
@@ -2833,7 +2921,7 @@ ${pfade}
     });
     // Alle Platten nacheinander herunterladen (kleine Pause, damit der Browser mitkommt)
     document.getElementById('herunterladen').addEventListener('click', () =>
-      platten.forEach((p, i) => setTimeout(() => svgHerunterladen(p), i * 400))
+      platten.forEach((p, i) => setTimeout(() => herunterladen(p), i * 400))
     );
 
     function ladeDatei(datei) {
