@@ -342,6 +342,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Teile im Modell; stumpf/ausgleichen/Gehrung/Auffalten ohne Überlappung. Testtreppe aus Rohbau + Belag in einem
   Körper: 6 Trittstufen (310 mm mit Vorderkante), 6 Setzstufen (Belag), 2 Wangen. `testtreppe.obj` unverändert.
 
+- 17.11.: **Punktlinie im Titel.** Rechts neben „LaserPrep · unfold your ideas“ läuft eine orange Punktlinie bis zum
+  rechten Rand, genau auf Höhe der Titelmitte. Am Titel liegen die Punkte eng (6 px), nach rechts wird jeder Abstand
+  13 % größer. Die Linie passt sich der Fensterbreite an und erscheint nach dem Intro zusammen mit dem Untertitel.
+  Getestet: Linie und Titel haben dieselbe Mitte, Abstände 6 → 6,8 → 7,6 … bis etwa 40 px.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
