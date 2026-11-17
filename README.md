@@ -4,7 +4,8 @@
 Anhand eines 3D-Modells wird eine Laserdatei erstellt.
 
 ## Benutzung
-`index.html` im Browser öffnen und die Kacheln der Reihe nach ausfüllen: 01 Pappe, 02 Datei
+Online: https://jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D/ (oder `index.html` direkt im Browser öffnen).
+Dann die Kacheln der Reihe nach ausfüllen: 01 Pappe, 02 Datei
 (OBJ oder IFC auf die Seite ziehen oder „OBJ- oder IFC-Datei wählen“ klicken), 03 Maßstab, 04 Farben,
 05 Gehrung, 06 Bauteile, 07 Vorschau mit Download (eine Datei pro Platte, wahlweise SVG oder DXF; für DWG die DXF in AutoCAD
 als DWG speichern).

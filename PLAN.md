@@ -47,7 +47,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   - [x] Materialstärke ausgleichen (Stoß auf Außenkante, größere Platte läuft durch)
   - [x] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
   - [x] Auffalten (Flächen als ein Stück, Knicke blau)
-- [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer; noch mit echtem Archicad-IFC testen)*
+- [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer, Treppen; mit echtem Archicad-Modell getestet)*
 - [x] Fugen auf Fassaden als Gravur *(Fassaden-Texturen je Gruppe, auch eigene Strichdatei)*
 - [ ] PDF-Export
 
@@ -414,6 +414,11 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Walmdach mit Dachziegeln parallel zur Traufe, an den Graten abgeschnitten; eigene Rauten-SVG 755 Linien; DXF-Ebene
   GRAVUR mit 755 Linien (Farbe 7); ohne Textur SVG Zeichen für Zeichen wie vorher. Rechenzeit mit Textur etwa 0,1–0,15 s.
 
+- 17.11.: **Von der Nutzerin selbst getestet:** echtes Archicad-Modell (klappt), DXF in AutoCAD geöffnet (klappt).
+  **Online:** GitHub Pages ist eingeschaltet, die App läuft unter https://jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D/
+  (Adresse auch in der README). Online geprüft: Testhaus mit Auffalten (1 Netz, 3 Knicke), Walmdach als IFC (web-ifc vom
+  CDN, 10 Teile), Mauerwerk-Textur, Testtreppe (14 Treppenteile), Lupe, Maßband und die drei Download-Formate – keine
+  Fehlermeldungen.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
-2. Echtes Archicad-Modell testen (OBJ und IFC).
