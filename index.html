@@ -278,7 +278,7 @@
     }
     /* Lupe: runder Ausschnitt, 3-fach vergrößert, folgt der Maus über den Platten */
     #lupe { position: fixed; left: 0; top: 0; width: 180px; height: 180px; border-radius: 50%; overflow: hidden;
-      background: #fff; box-shadow: 0 0 0 2px var(--akzent), 0 4px 18px rgba(0, 0, 0, 0.18);
+      background: #fff; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);   /* kein farbiger Rand, nur ein leichter Schatten */
       pointer-events: none; z-index: 50; display: none; }
     #lupe.sichtbar { display: block; }
     /* Die Kopie in der Lupe darf die Maus nie „abfangen“ – sonst verschwindet die Lupe kurz (Flackern) */
@@ -613,6 +613,8 @@
           <label class="abstand-feld">Abstand
             <input type="number" id="abstand" value="5" min="0" step="0.5" aria-label="Abstand zwischen den Teilen in mm"> mm
           </label>
+          <button class="button zweit klein-button" id="lupe-schalter" aria-pressed="false" hidden
+            title="Lupe über den Platten ein- oder ausschalten">Lupe: aus</button>
           <p id="meldung"></p>
           <button class="button" id="herunterladen">SVG herunterladen</button>
         </div>
@@ -2296,9 +2298,26 @@
       lupe.id = 'lupe';
       lupe.setAttribute('aria-hidden', 'true');
       document.body.appendChild(lupe);
+      // Schalter „Lupe: an/aus“ in Kachel 08; der Browser merkt sich die Wahl
+      const schalter = document.getElementById('lupe-schalter');
+      let lupeAn = false;
+      try { lupeAn = localStorage.getItem('laserprep-lupe') === 'an'; } catch (e) { /* egal */ }
+      const schalterZeigen = () => {
+        schalter.textContent = lupeAn ? 'Lupe: an' : 'Lupe: aus';
+        schalter.setAttribute('aria-pressed', String(lupeAn));
+        if (!lupeAn) lupe.classList.remove('sichtbar');
+      };
+      schalter.hidden = false;
+      schalterZeigen();
+      schalter.addEventListener('click', () => {
+        lupeAn = !lupeAn;
+        try { localStorage.setItem('laserprep-lupe', lupeAn ? 'an' : 'aus'); } catch (e) { /* egal */ }
+        schalterZeigen();
+      });
       let maus = null, geplant = false;
       const lupeZeichnen = () => {
         geplant = false;
+        if (!lupeAn) { lupe.classList.remove('sichtbar'); return; }
         const svg = maus && document.elementFromPoint(maus.clientX, maus.clientY)?.closest('.platte .bild svg');
         if (!svg) { lupe.classList.remove('sichtbar'); return; }
         const r = svg.getBoundingClientRect(), radius = lupe.clientWidth / 2 || 90;
