@@ -213,7 +213,8 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Hinweis: Die Anordnung ändert sich dadurch auch bei „stumpf“ (andere Lage der Teile, gleiche Umrisse).
 
 - 17.11.: **Teile in der Vorschau erkennen**: Jedes Teil auf der Pappe trägt seine Nummer und seinen Namen
-  (z. B. „07 Dachflaeche_Sued“, bei kleinen Teilen nur „07“, Nummer wie in der Bauteilliste). Der Schriftzug steht
+  (z. B. „07 Dachflaeche_Sued“, bei kleinen Teilen nur „07“, Nummer wie in der Bauteilliste) – sichtbar nur auf dem
+  Teil unter der Maus, in der Schrift der App (Space Grotesk). Der Schriftzug steht
   nur in der Vorschau, nicht in der Laserdatei (so gewünscht). Fährt man mit der Maus über ein Teil, wird es orange
   hinterlegt, alle anderen Teile werden blass; gleichzeitig leuchtet das Bauteil im 3D-Modell orange, der Rest des
   Hauses wird durchsichtig, und der Name in der Bauteilliste wird orange. Umgekehrt zeigt die Maus auf einem Namen
