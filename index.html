@@ -321,6 +321,11 @@
     .textur-zeile select { max-width: 60%; }
     .textur-eigene { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; font-size: 13px; }
     .textur-eigene input { width: 64px; }
+    .textur-hochladen { margin-top: 10px; padding: 12px 14px; border: 1.5px dashed currentColor; border-radius: var(--rund-klein);
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 13px; cursor: pointer; }
+    .textur-hochladen.drueber { background: rgba(255, 255, 255, 0.25); }
+    .textur-hochladen .textur-status { flex-basis: 100%; }
+    .textur-hochladen .textur-status:empty { display: none; }
     .kachel.aktiv .texturen .klein { color: #fff; }
     /* Gravur in der Vorschau etwas zarter, damit die Schnittlinien gut sichtbar bleiben */
     :is(.platte, #lupe) svg g[data-art="gravur"] path { stroke-width: 0.6px; opacity: 0.75; }
@@ -744,12 +749,17 @@
           <h3>Fassaden-Textur (wird graviert)</h3>
           <p class="klein" id="textur-hinweis"></p>
           <div id="texturen"></div>
+          <!-- Eigene Textur hochladen: Feld zum Hineinziehen oder Klicken -->
+          <div class="textur-hochladen" id="textur-feld" role="button" tabindex="0">
+            <strong>Eigene Textur hochladen</strong>
+            <span>SVG, DXF oder DWG hierher ziehen oder klicken</span>
+            <span class="textur-status" id="textur-status"></span>
+          </div>
           <div class="textur-eigene" id="textur-eigene" hidden>
-            <span>Eigene Strichdatei: <strong id="textur-datei">–</strong></span>
-            <button class="textbutton" id="textur-laden">andere Datei wählen</button>
+            <span>Eigene Textur: <strong id="textur-datei">–</strong></span>
             <label>Musterbreite im Gebäude <input type="number" id="textur-breite" value="100" min="1" step="1" aria-label="Breite des Musters im Gebäude in cm"> cm</label>
           </div>
-          <input type="file" id="textur-input" accept=".svg,image/svg+xml" hidden>
+          <input type="file" id="textur-input" accept=".svg,.dxf,.dwg,image/svg+xml" hidden>
         </div>
         <div class="eigene">
           <h3>Eigene Bauteile aus deiner Datei</h3>
@@ -1881,12 +1891,17 @@
       eigene: { name: 'Eigene Strichdatei (SVG) …', linien: (x0, y0, x1, y1) => {
         if (!eigeneTextur) return [];
         const { segmente, w, h } = eigeneTextur, f = eigeneTexturBreite() / w, tw = w * f, th = h * f, l = [];
+        // Zu viele Linien würden den Browser lahmlegen → abbrechen (siehe TEXTUR_GRENZE)
+        const kacheln = (Math.floor(x1 / tw) - Math.floor(x0 / tw) + 1) * (Math.floor(y1 / th) - Math.floor(y0 / th) + 1);
+        if (kacheln * segmente.length > TEXTUR_GRENZE) return null;
         for (let i = Math.floor(x0 / tw); i * tw <= x1; i++) for (let j = Math.floor(y0 / th); j * th <= y1; j++) {
           segmente.forEach(([[ax, ay], [bx, by]]) => l.push([[i * tw + ax * f, j * th + ay * f], [i * tw + bx * f, j * th + by * f]]));
         }
         return l;
       } }
     };
+    const TEXTUR_GRENZE = 30000;             // höchstens so viele Musterlinien pro Teil (sonst wird es zu langsam)
+    let texturZuFein = [];                   // Namen der Teile, bei denen das Muster zu fein war
     const texturen = {};                     // Gruppe → Textur-Schlüssel (fehlt = keine)
     let eigeneTextur = null;                 // { name, segmente (y nach oben), w, h } aus einer hochgeladenen SVG
     function eigeneTexturBreite() { return (parseFloat(document.getElementById('textur-breite')?.value) || 100) * 10; }   // cm → mm
@@ -1903,8 +1918,9 @@
       if (!alle.length) return [];
       const x0 = Math.min(...alle.map(p => p[0])), x1 = Math.max(...alle.map(p => p[0]));
       const y0 = Math.min(...alle.map(p => p[1])), y1 = Math.max(...alle.map(p => p[1]));
-      const muster = textur.linien(x0 * einheitMm, y0 * einheitMm, x1 * einheitMm, y1 * einheitMm)
-        .map(l => l.map(([x, y]) => [x / einheitMm, y / einheitMm]));
+      const roh = textur.linien(x0 * einheitMm, y0 * einheitMm, x1 * einheitMm, y1 * einheitMm);
+      if (!roh || roh.length > TEXTUR_GRENZE) return null;      // Muster zu fein für dieses Teil
+      const muster = roh.map(l => l.map(([x, y]) => [x / einheitMm, y / einheitMm]));
       const kanten = [];
       zuege.forEach(z => z.forEach((p, i) => kanten.push([p, z[(i + 1) % z.length]])));
       const innen = pt => {                  // gerade/ungerade über alle Linienzüge → Löcher bleiben frei
@@ -1934,6 +1950,52 @@
         if (start !== null) ergebnis.push([[a[0] + dx * start, a[1] + dy * start], b]);
       }
       return ergebnis;
+    }
+
+    // Eigene Textur: DXF lesen (z. B. aus AutoCAD oder Archicad). Gelesen werden LINE, LWPOLYLINE, POLYLINE,
+    // CIRCLE und ARC (Bögen werden in kurze gerade Stücke zerlegt). Blöcke (INSERT) werden nicht aufgelöst.
+    // Steht in der Datei die Einheit ($INSUNITS), ist auch die echte Breite des Musters bekannt.
+    function dxfMusterLesen(text, name) {
+      const z = text.split(/\r?\n/), paare = [];
+      for (let i = 0; i + 1 < z.length; i += 2) paare.push([parseInt(z[i], 10), z[i + 1].trim()]);
+      let einheit = 0;
+      for (let i = 0; i + 1 < paare.length; i++) if (paare[i][0] === 9 && paare[i][1] === '$INSUNITS') { einheit = parseInt(paare[i + 1][1], 10) || 0; break; }
+      const start = paare.findIndex((p, i) => p[0] === 2 && p[1] === 'ENTITIES' && paare[i - 1]?.[1] === 'SECTION');
+      if (start < 0) return null;
+      const segmente = [];
+      const zug = (p, zu) => { for (let i = 0; i + 1 < p.length; i++) segmente.push([p[i], p[i + 1]]); if (zu && p.length > 2) segmente.push([p[p.length - 1], p[0]]); };
+      const bogen = (cx, cy, r, a0, a1) => {           // Winkel in Grad, gegen den Uhrzeigersinn
+        while (a1 <= a0) a1 += 360;
+        const n = Math.max(4, Math.ceil((a1 - a0) / 10)), p = [];
+        for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+        return p;
+      };
+      let i = start + 1, poly = null;
+      while (i < paare.length && !(paare[i][0] === 0 && paare[i][1] === 'ENDSEC')) {
+        const typ = paare[i][1]; i++;
+        const werte = [];                               // alle Gruppen bis zum nächsten Element
+        while (i < paare.length && paare[i][0] !== 0) werte.push(paare[i++]);
+        const wert = c => { const w = werte.find(p => p[0] === c); return w ? parseFloat(w[1]) : 0; };
+        if (typ === 'LINE') segmente.push([[wert(10), wert(20)], [wert(11), wert(21)]]);
+        else if (typ === 'LWPOLYLINE') {
+          const p = [];
+          werte.forEach(([c, v]) => { if (c === 10) p.push([parseFloat(v), 0]); else if (c === 20 && p.length) p[p.length - 1][1] = parseFloat(v); });
+          zug(p, (wert(70) & 1) === 1);
+        } else if (typ === 'POLYLINE') poly = { zu: (wert(70) & 1) === 1, p: [] };
+        else if (typ === 'VERTEX' && poly) poly.p.push([wert(10), wert(20)]);
+        else if (typ === 'SEQEND' && poly) { zug(poly.p, poly.zu); poly = null; }
+        else if (typ === 'CIRCLE') zug(bogen(wert(10), wert(20), wert(40), 0, 360), false);
+        else if (typ === 'ARC') zug(bogen(wert(10), wert(20), wert(40), wert(50), wert(51)), false);
+      }
+      if (!segmente.length) return null;
+      const alle = segmente.flat();
+      const x0 = Math.min(...alle.map(p => p[0])), y0 = Math.min(...alle.map(p => p[1]));
+      const w = Math.max(...alle.map(p => p[0])) - x0, h = Math.max(...alle.map(p => p[1])) - y0;
+      if (!(w > 0) || !(h > 0)) return null;
+      // Einheit der DXF → Breite in cm: 1 Zoll, 2 Fuß, 4 mm, 5 cm, 6 m
+      const cmProEinheit = { 1: 2.54, 2: 30.48, 4: 0.1, 5: 1, 6: 100 }[einheit];
+      return { name, segmente: segmente.map(s => s.map(([x, y]) => [x - x0, y - y0])), w, h,
+        breiteCm: cmProEinheit ? w * cmProEinheit : null };
     }
 
     // Eigene Textur: SVG mit Linien lesen (line, polyline, polygon, rect und path mit geraden Stücken)
@@ -2286,6 +2348,7 @@
 
     function laserNeuBerechnen() {
       const e = einstellungen();
+      texturZuFein = [];
       const faktor = e.einheitMm / e.massstab;       // CAD-Einheit → mm auf der Platte
 
       // Ein Teil für eine bestimmte Pappdicke fertig machen: Kanten anpassen
@@ -2310,6 +2373,7 @@
         // Fassaden-Textur (Kachel 06) als Gravur – nur ohne Anritzen und Falten, also bei „stumpf“ und „ausgleichen“
         const textur = texturErlaubt(e.kanten) && !t.netz ? texturVon(t.gruppe) : null;
         let gravur = textur ? texturLinien(zuege, textur, e.einheitMm) : [];
+        if (gravur === null) { gravur = []; if (!texturZuFein.includes(t.name)) texturZuFein.push(t.name); }
         // Bei der Gehrung liegt die Innenseite (mit Anritzlinie) im Laser oben → ggf. spiegeln.
         // Mit Textur muss die Außenseite oben liegen (dort wird graviert) → ggf. andersherum spiegeln.
         const sx = (e.kanten === 'gehrung' && t.vonAussen) || (textur && t.vonAussen === false) ? -faktor : faktor;
@@ -2451,6 +2515,12 @@
       meldung.textContent = meldungen.length ? meldungen.join(' ')
         : `Alle ${anzahlTeile} Teile passen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}.`;
       texturZustand();
+      if (texturZuFein.length) {
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--grau)';
+        extra.textContent = ` Textur zu fein (mehr als ${TEXTUR_GRENZE.toLocaleString('de-DE')} Linien) für: ${texturZuFein.join(', ')} – dort bleibt sie weg. Musterbreite größer stellen oder ein einfacheres Muster nehmen.`;
+        meldung.appendChild(extra);
+      }
       if (Object.keys(texturen).length && !texturErlaubt(e.kanten)) {
         const extra = document.createElement('span');
         extra.style.color = 'var(--grau)';
@@ -2670,8 +2740,7 @@
       document.getElementById('textur-hinweis').textContent = erlaubt
         ? 'Das Muster kommt maßstabsgerecht auf die Außenseite (Teile werden dafür bei Bedarf gespiegelt). Fenster und Türen bleiben frei.'
         : 'Texturen gehen nur mit „stumpf“ oder „Materialstärke ausgleichen“ (Kachel 05) – bei Gehrung und Auffalten wird angeritzt bzw. gefaltet.';
-      const eigene = Object.values(texturen).includes('eigene');
-      document.getElementById('textur-eigene').hidden = !eigene;
+      document.getElementById('textur-eigene').hidden = !eigeneTextur;
       document.getElementById('textur-datei').textContent = eigeneTextur ? eigeneTextur.name : '–';
     }
     document.getElementById('texturen').addEventListener('change', ev => {
@@ -2687,20 +2756,45 @@
       texturZustand();
       laserNeuBerechnen();
     });
-    document.getElementById('textur-laden').addEventListener('click', () => document.getElementById('textur-input').click());
-    document.getElementById('textur-input').addEventListener('change', async ev => {
-      const datei = ev.target.files[0];
-      ev.target.value = '';
-      if (!datei) return;
-      const muster = strichdateiLesen(await datei.text(), datei.name);
-      if (!muster) {
-        document.getElementById('textur-hinweis').textContent = 'In dieser Datei wurden keine Linien gefunden. Bitte eine SVG mit Linien (ohne Kurven) wählen.';
+    // Eigene Textur laden: SVG und DXF werden gelesen. DWG ist ein geschlossenes Autodesk-Format, das eine Webseite
+    // nicht lesen kann – dafür gibt es einen Hinweis (in AutoCAD „Speichern unter → DXF“).
+    async function texturDateiLaden(datei) {
+      const status = document.getElementById('textur-status');
+      const endung = (datei.name.match(/\.(\w+)$/) || [])[1]?.toLowerCase();
+      if (endung === 'dwg') {
+        status.textContent = `${datei.name}: DWG kann eine Webseite nicht lesen (geschlossenes Autodesk-Format). Bitte in AutoCAD „Speichern unter“ → „DXF“ wählen und die DXF hier hochladen.`;
         return;
       }
+      if (endung !== 'svg' && endung !== 'dxf') { status.textContent = `${datei.name}: Bitte eine SVG-, DXF- oder DWG-Datei wählen.`; return; }
+      const text = await datei.text();
+      const muster = endung === 'dxf' ? dxfMusterLesen(text, datei.name) : strichdateiLesen(text, datei.name);
+      if (!muster) { status.textContent = `${datei.name}: Keine Linien gefunden.`; return; }
       eigeneTextur = muster;
+      // Kennt die DXF ihre Einheit, ist die echte Musterbreite bekannt → Feld vorausfüllen
+      if (muster.breiteCm) document.getElementById('textur-breite').value = Math.round(muster.breiteCm * 10) / 10;
+      status.textContent = `${datei.name}: ${muster.segmente.length === 1 ? '1 Linie' : muster.segmente.length.toLocaleString('de-DE') + ' Linien'} geladen` +
+        (muster.breiteCm ? `, Muster ${String(Math.round(muster.breiteCm * 10) / 10).replace('.', ',')} cm breit (aus der Datei).` : '. Musterbreite unten einstellen.') +
+        ' Bei einer Gruppe „Eigene“ wählen.';
       if (texturWartet) { texturen[texturWartet] = 'eigene'; texturWartet = null; }
       texturenZeichnen();
       laserNeuBerechnen();
+    }
+    const texturFeld = document.getElementById('textur-feld');
+    texturFeld.addEventListener('click', () => document.getElementById('textur-input').click());
+    texturFeld.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); document.getElementById('textur-input').click(); } });
+    // Hineinziehen: nur hier eine Textur laden – nicht als neues Modell (das macht sonst das ganze Fenster)
+    texturFeld.addEventListener('dragover', ev => { ev.preventDefault(); ev.stopPropagation(); texturFeld.classList.add('drueber'); });
+    texturFeld.addEventListener('dragleave', () => texturFeld.classList.remove('drueber'));
+    texturFeld.addEventListener('drop', ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      texturFeld.classList.remove('drueber');
+      document.body.classList.remove('ziehen');
+      if (ev.dataTransfer.files[0]) texturDateiLaden(ev.dataTransfer.files[0]);
+    });
+    document.getElementById('textur-input').addEventListener('change', ev => {
+      const datei = ev.target.files[0];
+      ev.target.value = '';
+      if (datei) texturDateiLaden(datei);
     });
     document.getElementById('textur-breite').addEventListener('input', laserNeuBerechnen);
 

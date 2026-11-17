@@ -420,5 +420,18 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   CDN, 10 Teile), Mauerwerk-Textur, Testtreppe (14 Treppenteile), Lupe, Maßband und die drei Download-Formate – keine
   Fehlermeldungen.
 
+- 17.11.: **Hochladefeld für eigene Texturen** (Kachel 06, unter den Textur-Auswahlfeldern): „Eigene Textur hochladen –
+  SVG, DXF oder DWG hierher ziehen oder klicken“. **SVG** wie bisher. **DXF** wird jetzt auch gelesen: LINE, LWPOLYLINE,
+  POLYLINE, CIRCLE und ARC (Bögen in kurze Stücke zerlegt; Blöcke werden nicht aufgelöst). Steht die Einheit in der DXF
+  (mm/cm/m/Zoll/Fuß), wird die echte Musterbreite automatisch eingetragen. **DWG** kann eine Webseite nicht lesen
+  (geschlossenes Autodesk-Format) – dann kommt der Hinweis, die Datei in AutoCAD als DXF zu speichern. Eine Datei, die
+  man auf das Feld zieht, wird nur als Textur geladen, nicht als neues Modell. Die Zeile „Eigene Textur: … ·
+  Musterbreite“ erscheint, sobald eine Datei geladen ist; danach bei einer Gruppe „Eigene“ wählen.
+  Neu: **Grenze gegen zu feine Muster** – mehr als 30.000 Musterlinien pro Teil werden abgelehnt (Meldung nennt die
+  Teile), sonst konnte der Browser abstürzen (passiert im Test mit einer ganzen Laserdatei als Textur).
+  Getestet: DWG → Hinweis, Modell bleibt; DXF (mm) mit allen fünf Elementarten → 60 Linien, Breite 40 cm aus der Datei,
+  auf den Außenwänden 39.660 Gravurlinien, 0 Überlappungen (Rechenzeit etwa 2 s – feine eigene Muster machen die App
+  langsamer); LaserPrep-eigene DXF als Textur → abgelehnt mit Meldung statt Absturz; SVG und falsches Format (TXT) ok.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
