@@ -1324,10 +1324,12 @@
 
     // Teil rastern: pro Kästchenzeile die belegten Bereiche [von, bis]. „fuss“ = die echte
     // Fläche, „dicht“ = um den Abstand vergrößert (damit Teile nicht zu nah kommen)
+    // Genau und sicher: Ein Kästchen gilt als belegt, sobald das Teil es auch nur
+    // ein kleines Stück berührt. Dafür zählen ALLE Linienzüge (auch getrennte Stücke
+    // eines Teils), jede Kante, die durch die Zeile läuft, und jede Ecke in der Zeile.
     function rastern(v, r, rand) {
       const schluessel = r + '|' + rand;
       if (v.raster.has(schluessel)) return v.raster.get(schluessel);
-      const zug = v.zuege[v.ai];
       const wc = Math.ceil(v.b / r - 1e-9), hc = Math.ceil(v.h / r - 1e-9);
       const vereinen = liste => {
         liste.sort((p, q) => p[0] - q[0]);
@@ -1338,19 +1340,39 @@
         }
         return aus;
       };
+      const spalte = x => Math.floor((x - v.minX) / r);
+      const bis = x => Math.ceil((x - v.minX) / r) - 1;
+      const eintragen = (liste, x1, x2) => {
+        const a = Math.min(wc - 1, Math.max(0, spalte(Math.min(x1, x2)))), b = Math.min(wc - 1, Math.max(a, bis(Math.max(x1, x2))));
+        if (a <= b) liste.push([a, b]);
+      };
+      const kanten = [];                                    // alle Kanten aller Linienzüge
+      v.zuege.forEach(z => z.forEach((p, i) => kanten.push([p, z[(i + 1) % z.length]])));
       const fuss = [];
       for (let j = 0; j < hc; j++) {
         const bereiche = [];
-        for (const f of [0.02, 0.5, 0.98]) {                 // drei Messlinien pro Zeile
-          const y = v.maxY - (j + f) * r, xs = [];
-          for (let i = 0; i < zug.length; i++) {
-            const [x1, y1] = zug[i], [x2, y2] = zug[(i + 1) % zug.length];
-            if ((y1 <= y) !== (y2 <= y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
-          }
-          xs.sort((a, b) => a - b);
-          for (let i = 0; i + 1 < xs.length; i += 2) {
-            const a = Math.max(0, Math.floor((xs[i] - v.minX) / r)), b = Math.min(wc - 1, Math.ceil((xs[i + 1] - v.minX) / r) - 1);
-            if (a <= b) bereiche.push([a, b]);
+        const oben = v.maxY - j * r, unten = v.maxY - (j + 1) * r, eps = r * 1e-6;
+        // 1. Jede Kante, soweit sie in dieser Zeile liegt (Ränder, schräge Kanten, Spitzen)
+        for (const [[x1, y1], [x2, y2]] of kanten) {
+          if (Math.max(y1, y2) < unten || Math.min(y1, y2) > oben) continue;
+          if (y1 === y2) { eintragen(bereiche, x1, x2); continue; }
+          const t1 = Math.max(0, Math.min(1, (oben - y1) / (y2 - y1))), t2 = Math.max(0, Math.min(1, (unten - y1) / (y2 - y1)));
+          eintragen(bereiche, x1 + t1 * (x2 - x1), x1 + t2 * (x2 - x1));
+        }
+        // 2. Das Innere: waagerechte Messlinien knapp unter der Oberkante, knapp über
+        //    der Unterkante und dicht ober- und unterhalb jeder Ecke in der Zeile.
+        //    Jeder Linienzug wird für sich gefüllt (Löcher bleiben belegt).
+        const hoehen = [oben - eps, unten + eps];
+        v.zuege.forEach(z => z.forEach(([, y]) => { if (y < oben && y > unten) hoehen.push(y + eps, y - eps); }));
+        for (const y of hoehen) {
+          for (const z of v.zuege) {
+            const xs = [];
+            for (let i = 0; i < z.length; i++) {
+              const [x1, y1] = z[i], [x2, y2] = z[(i + 1) % z.length];
+              if ((y1 <= y) !== (y2 <= y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+            }
+            xs.sort((a, b) => a - b);
+            for (let i = 0; i + 1 < xs.length; i += 2) eintragen(bereiche, xs[i], xs[i + 1]);
           }
         }
         fuss.push(vereinen(bereiche));
@@ -1418,7 +1440,9 @@
     // Teile einer Pappsorte auf höchstens pappe.anzahl Platten verteilen
     function packen(kandidaten, pappe, randMm) {
       const r = Math.max(0.5, Math.max(pappe.breite, pappe.hoehe) / 400);
-      const rand = Math.ceil(randMm / r) + 1;            // Abstand in Kästchen (+1 zur Sicherheit)
+      // Abstand in Kästchen. Weil die Kästchen das Teil jetzt sicher ganz abdecken, reicht
+      // genau der Abstand; mindestens 1 Kästchen, damit sich Teile auch bei 0 mm nie berühren.
+      const rand = Math.max(1, Math.ceil(randMm / r - 1e-9));
       const tafeln = [], uebrig = [];
       [...kandidaten].sort((p, q) => q.teil.b * q.teil.h - p.teil.b * p.teil.h).forEach(k => {
         const varianten = drehungen(k.teil).filter(v => v.b <= pappe.breite - 2 * randMm && v.h <= pappe.hoehe - 2 * randMm);
@@ -2105,8 +2129,69 @@ ${pfade}
     laserNeuBerechnen();
     schritteZeigen();
 
+    // Für Tests: prüft auf jeder Platte alle Teile paarweise mit ihrer echten Form.
+    // Gemeldet wird, wenn sich zwei Teile überschneiden, näher als „Abstand (mm)“
+    // beieinander liegen oder ein Teil näher als der Abstand am Plattenrand liegt.
+    function ueberlappungen() {
+      const abstand = abstandMm(), toleranz = 1e-6, funde = [];
+      const segAbstand = (p, q, a, b) => {          // kürzester Abstand zweier Strecken
+        const punktStrecke = (o, s, t) => {
+          const dx = t[0] - s[0], dy = t[1] - s[1], l = dx * dx + dy * dy;
+          const k = l ? Math.max(0, Math.min(1, ((o[0] - s[0]) * dx + (o[1] - s[1]) * dy) / l)) : 0;
+          return Math.hypot(o[0] - s[0] - k * dx, o[1] - s[1] - k * dy);
+        };
+        const kreuz = (o, s, t) => (s[0] - o[0]) * (t[1] - o[1]) - (s[1] - o[1]) * (t[0] - o[0]);
+        const d1 = kreuz(p, q, a), d2 = kreuz(p, q, b), d3 = kreuz(a, b, p), d4 = kreuz(a, b, q);
+        if (((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0)) && d1 && d2 && d3 && d4) return -1;  // kreuzen sich echt
+        return Math.min(punktStrecke(p, a, b), punktStrecke(q, a, b), punktStrecke(a, p, q), punktStrecke(b, p, q));
+      };
+      const innen = (pt, zuege) => {                // Punkt im Material (gerade/ungerade über alle Linienzüge)
+        let drin = false;
+        zuege.forEach(z => {
+          for (let i = 0, j = z.length - 1; i < z.length; j = i++) {
+            const [xi, yi] = z[i], [xj, yj] = z[j];
+            if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) drin = !drin;
+          }
+        });
+        return drin;
+      };
+      platten.forEach((platte, pi) => {
+        const formen = platte.platziert.map(({ teil, x, y }) => {
+          const zuege = teil.zuege.map(z => z.map(([px, py]) => [x + px - teil.minX, y + teil.maxY - py]));
+          const alle = zuege.flat();
+          return { name: teil.name, zuege, x0: Math.min(...alle.map(p => p[0])), x1: Math.max(...alle.map(p => p[0])),
+                   y0: Math.min(...alle.map(p => p[1])), y1: Math.max(...alle.map(p => p[1])) };
+        });
+        const { breite, hoehe } = platte.pappe;
+        formen.forEach(f => {
+          const rest = Math.min(f.x0, f.y0, breite - f.x1, hoehe - f.y1);
+          if (rest < abstand - toleranz) funde.push({ platte: pi + 1, a: f.name, b: 'Plattenrand', abstand: Math.round(rest * 1000) / 1000 });
+        });
+        for (let i = 0; i < formen.length; i++) for (let j = i + 1; j < formen.length; j++) {
+          const A = formen[i], B = formen[j];
+          if (A.x0 > B.x1 + abstand || B.x0 > A.x1 + abstand || A.y0 > B.y1 + abstand || B.y0 > A.y1 + abstand) continue;
+          let d = Infinity, schnitt = false;
+          for (const za of A.zuege) for (let a = 0; a < za.length && !schnitt; a++)
+            for (const zb of B.zuege) for (let b = 0; b < zb.length && !schnitt; b++) {
+              const s = segAbstand(za[a], za[(a + 1) % za.length], zb[b], zb[(b + 1) % zb.length]);
+              if (s < 0) schnitt = true; else d = Math.min(d, s);
+            }
+          // Liegt ein Teil (ganz) im Material des anderen? Punkte direkt auf dem Rand zählen nicht.
+          const drin = (P, Q) => P.zuege.some(z => z.some((p, k) => {
+            const m = [(p[0] + z[(k + 1) % z.length][0]) / 2, (p[1] + z[(k + 1) % z.length][1]) / 2];
+            return innen(m, Q.zuege) && Q.zuege.every(zq => zq.every((q, l) => segAbstand(m, m, q, zq[(l + 1) % zq.length]) > 1e-6));
+          }));
+          if (!schnitt && (drin(A, B) || drin(B, A))) schnitt = true;
+          if (schnitt) funde.push({ platte: pi + 1, a: A.name, b: B.name, abstand: 0, art: 'überschneiden sich' });
+          else if (d < abstand - toleranz) funde.push({ platte: pi + 1, a: A.name, b: B.name, abstand: Math.round(d * 1000) / 1000, art: 'zu nah' });
+        }
+      });
+      return funde;
+    }
+
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile };
+    window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile, ueberlappungen,
+      vorschlagModus: an => pappeModusSetzen(an), vorschlag: () => vorschlag };
   </script>
 
   <!-- ---------- Intro-Animation ----------

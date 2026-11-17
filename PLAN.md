@@ -242,6 +242,21 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet: OBJ-Testhaus (4 Außenwände, Decke, Bodenplatte), Walmdach (4 Dachflächen → Dach), Testhaus mit
   zusätzlicher Trennwand (→ Innenwand) und Treppe (→ Treppe); Decke abwählen → 5 von 6 Teilen auf der Platte.
 
+- 17.11.: **Überlappende Teile beim Anordnen behoben.** Ursachen: (1) Besteht ein Teil aus mehreren getrennten
+  Stücken, hat das Anordnen nur das größte Stück beachtet – die anderen konnten unter fremden Teilen liegen.
+  (2) Sehr spitze Ecken ragten zwischen den drei Messlinien pro Rasterzeile heraus und wurden übersehen.
+  Neu: Alle Stücke eines Teils werden gerastert, und ein Kästchen gilt als belegt, sobald eine Kante, eine Ecke
+  oder die Fläche es berührt. Weil das Raster das Teil jetzt sicher ganz abdeckt, fällt das bisherige
+  „+1 Kästchen zur Sicherheit“ weg (mindestens 1 Kästchen Luft bleibt, auch bei Abstand 0 mm).
+  Neue Prüfhilfe `laserprep.ueberlappungen()` vergleicht auf jeder Platte alle Teile paarweise mit ihrer echten
+  Form (Überschneidung, Abstand kleiner als „Abstand (mm)“, zu nah am Plattenrand).
+  Getestet: OBJ-Testhaus, IFC-Testhaus, Walmdach und ein eigenes Testmodell (Teile aus 2–3 getrennten Flächen,
+  spitze Dreiecke, Nadeln, Kamm mit Zacken, Rauten) – je stumpf/ausgleichen/Gehrung, 1:20/1:50/1:75/1:100/1:200,
+  Abstand 0/2/5 mm, Pappe 300 × 200 / 600 × 450 / 1000 × 700 und „Ich habe noch keine Pappe“: 720 Fälle,
+  0 Überlappungen (vorher 1491 Funde im eigenen Testmodell, die Testhäuser waren schon sauber).
+  Platzbedarf: Testhäuser nie mehr Platten als vorher, in 93 von 405 Fällen liegt die letzte Platte sogar weniger
+  weit belegt, in 3 Fällen minimal mehr; Formatvorschlag insgesamt 1 % weniger Pappe; Walmdach 1:50 weiter A3 mit 51 %.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
