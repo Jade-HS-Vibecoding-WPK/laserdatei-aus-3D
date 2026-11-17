@@ -377,13 +377,14 @@
     #punkt svg path {
       fill: none; stroke: var(--akzent); stroke-width: 2;
       /* Ring: oberer Halbkreis + unterer Halbkreis (die Übergänge dazwischen haben die Länge 0) */
-      d: path("M2 12 A10 10 0 1 1 22 12 C22 12 22 12 22 12 A10 10 0 1 1 2 12 C2 12 2 12 2 12 Z");
+      d: path("M2 12 A10 10 0 1 1 22 12 C22 12 22 12 22 12 C22 12 22 12 22 12 A10 10 0 1 1 2 12 C2 12 2 12 2 12 C2 12 2 12 2 12 Z");
       transition: d 0.15s;
     }
     /* … und solange eine Maustaste gedrückt ist, verschmilzt er zu einer „8“ aus zwei runden Kreisen
-       (Mitte 6,5 und 17,5, Radius 5,5); in der Mitte sanft eingeschnürt, die Seiten berühren sich nicht */
+       (Mitte 6,5 und 17,5, Radius 5,5). Je Seite zwei weiche Bögen bis zur Taille – so verschmilzt die
+       Mitte rund statt spitz; die Seiten berühren sich nicht (7 px Abstand) */
     #punkt.ring.gedrueckt svg path {
-      d: path("M7.79 10.04 A5.5 5.5 0 1 1 16.21 10.04 C14.6 11.96 14.6 12.04 16.21 13.96 A5.5 5.5 0 1 1 7.79 13.96 C9.4 12.04 9.4 11.96 7.79 10.04 Z");
+      d: path("M6.69 7.92 A5.5 5.5 0 1 1 17.31 7.92 C16.74 10.05 15.5 9.8 15.5 12 C15.5 14.2 16.74 13.95 17.31 16.08 A5.5 5.5 0 1 1 6.69 16.08 C7.26 13.95 8.5 14.2 8.5 12 C8.5 9.8 7.26 10.05 6.69 7.92 Z");
     }
     #punkt.sichtbar { opacity: 1; }
     #punkt.weiss { background: #fff; }

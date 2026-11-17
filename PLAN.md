@@ -313,6 +313,10 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   wie zwei verschmelzende Kreise; die Seiten berühren sich in der Mitte nicht. Der Übergang vom Ring zur 8 läuft
   fließend (Ring teilt sich in zwei Kreise). Getestet: Ring, Zwischenstand und 8 vergrößert angesehen.
 
+- 17.11.: **Mitte der „8“ runder.** Die beiden Kreise gehen jetzt über je zwei weiche Bögen pro Seite ineinander über
+  (vorher ein Bogen mit spitzer Taille); die Taille ist dadurch rund, die Seiten bleiben 7 px auseinander.
+  Getestet: alte und neue Form nebeneinander vergrößert verglichen.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
