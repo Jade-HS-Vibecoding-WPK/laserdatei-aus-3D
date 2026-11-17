@@ -433,5 +433,15 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   auf den Außenwänden 39.660 Gravurlinien, 0 Überlappungen (Rechenzeit etwa 2 s – feine eigene Muster machen die App
   langsamer); LaserPrep-eigene DXF als Textur → abgelehnt mit Meldung statt Absturz; SVG und falsches Format (TXT) ok.
 
+- 17.11.: **Pappe je Gruppe** (Kachel 06, Abschnitt „Pappe je Gruppe“). Für jede Gruppe wählt man „automatisch“
+  (wie bisher: erst die erste Sorte füllen, Rest auf die nächste) oder eine feste Pappsorte aus 01 Pappe (Name, Größe,
+  Dicke stehen im Auswahlfeld und ändern sich mit). Teile einer Gruppe mit fester Pappe kommen nur auf diese Sorte;
+  passt etwas nicht, steht es in der Meldung. Bei „Ich habe noch keine Pappe“ ist die Zuordnung ausgegraut (alles auf
+  dasselbe Format). **Materialstärke ausgleichen** kürzt jetzt um die Dicke der Platte, an die gestoßen wird, wenn deren
+  Gruppe eine feste Pappe hat (damit ist der offene Punkt vom 17.11. „richtig wäre die Dicke der durchlaufenden Platte“
+  gelöst; bei „automatisch“ zählt weiter die eigene Dicke).
+  Getestet (OBJ-Testhaus 1:50): ohne Zuordnung SVG Zeichen für Zeichen wie vorher (9 Fälle); zweite Sorte „Karton“ 1 mm,
+  Außenwände → Karton: 2 Platten (Boden+Decke auf Graupappe, 4 Wände auf Karton); ausgleichen: Wände 66 mm hoch, mit
+  Boden/Decke fest auf Graupappe 2 mm 64 mm (zwischen den 2-mm-Platten), Querwände 78 mm; 0 Überlappungen.
+
 ## Nächste Schritte
-1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).

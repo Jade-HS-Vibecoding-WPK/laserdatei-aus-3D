@@ -316,7 +316,7 @@
     /* Fassaden-Texturen in Kachel 06 */
     .texturen { margin-top: 16px; }
     .texturen h3 { font-size: 14px; margin: 0 0 6px; }
-    #texturen { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
+    #texturen, #pappe-gruppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
     .textur-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
     .textur-zeile select { max-width: 60%; }
     .textur-eigene { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; font-size: 13px; }
@@ -744,6 +744,12 @@
         <!-- Nur sichtbar, wenn eine Treppe mit Seitenteilen (Wangen) gefunden wurde -->
         <button class="schalter" id="wangen-schalter" role="switch" aria-checked="true" hidden
           title="Die Zickzack-Seitenteile der Treppe mit ausschneiden oder weglassen"><span class="spur"><span class="knopf"></span></span>Treppenwangen mit ausschneiden</button>
+        <!-- Pappe je Gruppe: welche Pappsorte aus 01 Pappe für welche Gruppe -->
+        <div class="texturen" id="pappe-gruppen-feld" hidden>
+          <h3>Pappe je Gruppe</h3>
+          <p class="klein" id="pappe-gruppen-hinweis"></p>
+          <div id="pappe-gruppen" class="zuordnung"></div>
+        </div>
         <!-- Fassaden-Textur je Gruppe: wird als feine Linie in der Gravur-Farbe auf die Außenseite gelasert -->
         <div class="texturen" id="texturen-feld" hidden>
           <h3>Fassaden-Textur (wird graviert)</h3>
@@ -1583,7 +1589,8 @@
     // behalten ihre Richtung, die Ecken werden neu geschnitten. Löcher bleiben, wie sie sind.
     function kantenAusgleichen(teil, dicke) {
       if (teil.aussen < 0) return { zuege: teil.zuege, anzahl: 0 };
-      const r = umrissVerschieben(teil, s => s.faktor * dicke);
+      // dicke: Zahl (für alle Stöße gleich) oder Funktion stoß → Dicke der Platte, an die gestoßen wird
+      const r = umrissVerschieben(teil, s => s.faktor * (typeof dicke === 'function' ? dicke(s) : dicke));
       return { zuege: teil.zuege.map((zug, i) => (i === teil.aussen ? r.umriss : zug)), anzahl: r.anzahl };
     }
 
@@ -1853,7 +1860,7 @@
           const ms = mit[i].sort((x, y) => glieder[x].nr - glieder[y].nr);
           const nrs = ms.map(j => glieder[j].nr);
           einheiten.push({ name: ms.length > 1 ? `Netz ${gruppenName} (${ms.length} Teile)` : glieder[ms[0]].name,
-            nr: nrs[0], nrs, netz: true, glieder, mitglieder: ms, falten: falten[i], zuege: glieder[ms[0]].zuege });
+            nr: nrs[0], nrs, netz: true, glieder, mitglieder: ms, falten: falten[i], zuege: glieder[ms[0]].zuege, gruppe });
         });
       }
       einheiten.sort((a, b) => a.nr - b.nr);
@@ -2297,7 +2304,49 @@
         weg.addEventListener('click', () => { pappen.splice(i, 1); pappenZeichnen(); laserNeuBerechnen(); });
         liste.appendChild(block);
       });
+      pappeGruppenZeichnen();
     }
+
+    // ---------- 6h. Pappe je Gruppe (Kachel 06) ----------
+    // Jede Gruppe kann eine feste Pappsorte aus Kachel 01 bekommen (z. B. Außenwände auf Graupappe 2 mm,
+    // Dach auf Karton 1 mm). „automatisch“ = wie bisher: erst die erste Sorte füllen, Rest auf die nächste.
+    const pappeJeGruppe = {};               // Gruppe → Pappsorte (das Objekt aus „pappen“)
+    function pappeFuer(t) {                  // feste Pappe eines Teils (oder Netzes) – sonst null
+      if (pappeVorschlagen || !t) return null;
+      const p = pappeJeGruppe[t.gruppe];
+      return p && pappen.includes(p) ? p : null;
+    }
+    function pappeGruppenZeichnen() {
+      const feld = document.getElementById('pappe-gruppen');
+      if (!feld) return;
+      feld.innerHTML = '';
+      const vorhanden = GRUPPEN.filter(g => flacheTeile.some(t => t.gruppe === g.id));
+      document.getElementById('pappe-gruppen-feld').hidden = !vorhanden.length;
+      document.getElementById('pappe-gruppen-hinweis').textContent = pappeVorschlagen
+        ? 'Du lässt LaserPrep das Pappformat vorschlagen (01 Pappe) – dann kommt alles auf dieselbe Pappe.'
+        : pappen.length === 1 ? 'Lege bei 01 Pappe mehrere Sorten an (z. B. dicke Graupappe für Wände, dünnen Karton fürs Dach), dann kannst du sie hier zuordnen.'
+          : '„automatisch“: erst die erste Sorte füllen, was nicht passt, kommt auf die nächste.';
+      vorhanden.forEach(g => {
+        const zeile = document.createElement('label');
+        zeile.className = 'textur-zeile';
+        zeile.innerHTML = '<span></span><select></select>';
+        zeile.querySelector('span').textContent = g.name;
+        const auswahl = zeile.querySelector('select');
+        auswahl.dataset.gruppe = g.id;
+        auswahl.add(new Option('automatisch', ''));
+        pappen.forEach((p, i) => auswahl.add(new Option(`${p.name || 'Pappe ' + (i + 1)} · ${p.breite} × ${p.hoehe} · ${runde(p.dicke)} mm`, String(i))));
+        const p = pappeFuer({ gruppe: g.id });
+        auswahl.value = p ? String(pappen.indexOf(p)) : '';
+        auswahl.disabled = pappeVorschlagen;
+        feld.appendChild(zeile);
+      });
+    }
+    document.getElementById('pappe-gruppen').addEventListener('change', ev => {
+      const g = ev.target.dataset.gruppe;
+      if (!g) return;
+      if (ev.target.value === '') delete pappeJeGruppe[g]; else pappeJeGruppe[g] = pappen[Number(ev.target.value)];
+      laserNeuBerechnen();
+    });
     document.getElementById('pappen').addEventListener('input', ev => {
       const feld = ev.target.dataset.feld;
       if (!feld) return;
@@ -2307,6 +2356,7 @@
         const w = parseFloat(ev.target.value);
         if (w > 0) p[feld] = feld === 'anzahl' ? Math.max(1, Math.round(w)) : w;
       }
+      pappeGruppenZeichnen();                // Namen/Maße in der Zuordnung (Kachel 06) mitändern
       laserNeuBerechnen();
     });
     // Beim Verlassen eines Feldes ungültige Eingaben (z. B. Anzahl 0) wieder auf den gültigen Wert setzen
@@ -2364,7 +2414,9 @@
           const r = netzBauen(t.glieder, t.mitglieder, t.falten, dicke / faktor);
           zuege = r.zuege; ritzen = r.ritzen; anzahl = t.falten.length;
         } else if (e.kanten === 'ausgleichen') {
-          const r = kantenAusgleichen(t, dicke / faktor);   // Dicke in mm → CAD-Einheiten
+          // Gekürzt wird um die Dicke der Platte, auf die das Teil stößt (die durchläuft). Liegt die auf einer
+          // fest zugeordneten Pappe (Kachel 06), zählt deren Dicke – sonst die Dicke der eigenen Pappe.
+          const r = kantenAusgleichen(t, s => (pappeFuer(flacheTeile[s.a])?.dicke ?? dicke) / faktor);
           zuege = r.zuege; anzahl = r.anzahl;
         } else if (e.kanten === 'gehrung') {
           const r = gehrung(t, dicke / faktor);
@@ -2428,7 +2480,11 @@
         let offen = start, angepasst = 0;
         liste.forEach(pappe => {
           if (!offen.length) return;
-          const kandidaten = offen.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
+          // Gruppen mit fester Pappe (Kachel 06) kommen nur auf ihre Pappe, die anderen auf die erste, die passt
+          const hier = offen.filter(t => { const z = pappeFuer(t); return !z || z === pappe; });
+          if (!hier.length) return;
+          const andere = offen.filter(t => !hier.includes(t));
+          const kandidaten = hier.map(t => ({ t, teil: teilFuer(t, pappe.dicke) }));
           const { tafeln, uebrig } = packen(kandidaten, pappe, rand);
           tafeln.forEach((tafel, i) => {
             tafel.platziert.forEach(({ quelle }) => {
@@ -2438,7 +2494,7 @@
             });
             ergebnis.push({ pappe, nr: i + 1, platziert: tafel.platziert });
           });
-          offen = uebrig.map(k => k.t);
+          offen = [...andere, ...uebrig.map(k => k.t)];
         });
         return { platten: ergebnis, offen, angepasst, lage };
       }
@@ -2489,7 +2545,7 @@
       // Was übrig bleibt: zu groß für jede Pappe – oder alle Platten sind voll
       const zuGross = [], keinPlatz = [];
       offen.forEach(t => {
-        const passtIrgendwo = liste.some(p => passtAuf(teilFuer(t, p.dicke), p));
+        const passtIrgendwo = liste.filter(p => !pappeFuer(t) || pappeFuer(t) === p).some(p => passtAuf(teilFuer(t, p.dicke), p));
         (passtIrgendwo ? keinPlatz : zuGross).push(t.name);
       });
       if (!platten.length) platten.push({ pappe: liste[0], nr: 1, platziert: [] });
@@ -2709,6 +2765,7 @@
         eigene.append(titel, liste);
       });
       texturenZeichnen();
+      pappeGruppenZeichnen();
       auswahlAktualisieren(false);
     }
 
