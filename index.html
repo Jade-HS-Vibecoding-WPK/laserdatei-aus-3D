@@ -303,6 +303,7 @@
     #teile li.abgewaehlt { opacity: 0.4; text-decoration: line-through; }
 
     /* Kachel 06 Auswahl: Gruppen als Karten, darunter alle Bauteile einzeln */
+    #wangen-schalter { margin-top: 12px; }
     .gruppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
     .gruppe-wahl, .teil-wahl { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .gruppe-wahl {
@@ -608,6 +609,9 @@
       <div class="inhalt">
         <p class="frage">Welche Bauteile sollen gelasert werden? Nimm einen Haken weg, um eine Gruppe oder einzelne Teile wegzulassen.</p>
         <div class="gruppen" id="gruppen"></div>
+        <!-- Nur sichtbar, wenn eine Treppe mit Seitenteilen (Wangen) gefunden wurde -->
+        <button class="schalter" id="wangen-schalter" role="switch" aria-checked="true" hidden
+          title="Die Zickzack-Seitenteile der Treppe mit ausschneiden oder weglassen"><span class="spur"><span class="knopf"></span></span>Treppenwangen mit ausschneiden</button>
         <div class="eigene">
           <h3>Eigene Bauteile aus deiner Datei</h3>
           <div id="eigene-liste"><p class="klein">Sobald ein Modell geladen ist, stehen hier alle gefundenen Bauteile.</p></div>
@@ -839,11 +843,76 @@
       zeigeGruppe(gruppe, dateiname);
     }
 
+    // ---------- 3e. Treppen in einzelne Stufen zerlegen ----------
+    // Eine Treppe ist im Modell oft ein einziger Körper. Zum Kleben braucht man aber jede Stufe einzeln:
+    // Trittstufen = Flächen, die nach oben zeigen; Setzstufen = senkrechte Flächen, die zur Treppe hin
+    // (gegen die Laufrichtung) zeigen und höchstens etwa eine Stufe hoch sind; Wangen = die großen
+    // senkrechten Seitenflächen (Zickzack). Unterseite und Rückseite werden nicht gebraucht.
+    // Jede Fläche wird ein eigenes Bauteil – im 3D-Modell, in der Liste und auf der Pappe.
+    const TREPPE = /treppe|stair|stufe/i;
+    function istTreppe(m) { return String(m.userData?.ifcTyp || '').startsWith('IFCSTAIR') || TREPPE.test(m.name || ''); }
+
+    function treppeZerlegen(mesh) {
+      const { punkte, gruppen } = ebenenFinden(mesh.geometry);
+      const box = new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);
+      const hoehe = (box.max.y - box.min.y) || 1;
+      const info = gruppen.map(g => {
+        const ids = [...new Set(g.dreiecke.flat())];
+        let y0 = Infinity, y1 = -Infinity;
+        const mitte = new THREE.Vector3();
+        ids.forEach(i => { y0 = Math.min(y0, punkte[i].y); y1 = Math.max(y1, punkte[i].y); mitte.add(punkte[i]); });
+        return { g, y0, y1, mitte: mitte.divideScalar(ids.length) };
+      });
+      const tritte = info.filter(e => e.g.normale.y > 0.9).sort((a, b) => a.y0 - b.y0);
+      if (tritte.length < 2) return null;                 // keine Stufen erkennbar → Treppe bleibt ein Teil
+      // Stufenhöhe = mittlerer Höhenunterschied zwischen zwei Trittstufen
+      const spruenge = tritte.slice(1).map((t, i) => t.y0 - tritte[i].y0).filter(d => d > hoehe * 1e-3).sort((a, b) => a - b);
+      const steigung = spruenge.length ? spruenge[Math.floor(spruenge.length / 2)] : hoehe;
+      // Laufrichtung (waagerecht) von der untersten zur obersten Trittstufe
+      const lauf = tritte[tritte.length - 1].mitte.clone().sub(tritte[0].mitte);
+      lauf.y = 0;
+      if (lauf.lengthSq() < 1e-12) return null;
+      lauf.normalize();
+      const rechts = new THREE.Vector3().crossVectors(lauf, new THREE.Vector3(0, 1, 0));
+      const senkrecht = info.filter(e => Math.abs(e.g.normale.y) < 0.1);
+      const setz = senkrecht.filter(e => e.y1 - e.y0 <= steigung * 1.5 && e.g.normale.dot(lauf) < -0.5).sort((a, b) => a.y0 - b.y0);
+      const wangen = senkrecht.filter(e => e.y1 - e.y0 > steigung * 1.5 && Math.abs(e.g.normale.dot(lauf)) < 0.5);
+      const basis = mesh.name || 'Treppe';
+      const teile = [];
+      const neu = (e, name, art) => {
+        const werte = [];
+        e.g.dreiecke.forEach(d => d.forEach(i => werte.push(punkte[i].x, punkte[i].y, punkte[i].z)));
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(werte, 3));
+        geo.computeVertexNormals();
+        const m = new THREE.Mesh(geo);
+        m.name = name;
+        m.userData = { ...mesh.userData, treppenTeil: art };
+        m.position.copy(mesh.position); m.quaternion.copy(mesh.quaternion); m.scale.copy(mesh.scale);
+        teile.push(m);
+      };
+      tritte.forEach((e, i) => neu(e, `${basis} Trittstufe ${i + 1}`, 'tritt'));
+      setz.forEach((e, i) => neu(e, `${basis} Setzstufe ${i + 1}`, 'setz'));
+      wangen.forEach(e => neu(e, `${basis} Wange ${e.g.normale.dot(rechts) > 0 ? 'rechts' : 'links'}`, 'wange'));
+      return teile;
+    }
+
     // ---------- 3c. Fertige Bauteile anzeigen (für OBJ und IFC gleich) ----------
     function zeigeGruppe(gruppe, dateiname) {
       const fehler = document.getElementById('fehler');
       const bauteile = [];
       gruppe.traverse(obj => { if (obj.isMesh) bauteile.push(obj); });
+      // Treppen in Tritt- und Setzstufen (und Wangen) zerlegen – jede Stufe wird ein eigenes Bauteil
+      for (let i = bauteile.length - 1; i >= 0; i--) {
+        const m = bauteile[i];
+        if (!istTreppe(m)) continue;
+        const teile = treppeZerlegen(m);
+        if (!teile || !teile.length) continue;
+        const eltern = m.parent;
+        eltern.remove(m);
+        teile.forEach(t => eltern.add(t));
+        bauteile.splice(i, 1, ...teile);
+      }
       if (bauteile.length === 0) {
         fehler.textContent = 'In der Datei wurden keine Bauteile gefunden.';
         return;
@@ -996,6 +1065,15 @@
     // (z. B. die Vorderseite der Wand), drehen sie flach in 2D und nehmen
     // ihren Rand (Außenkante + Löcher) als Schnittlinien.
     function flachLegen(geometrie) {
+      const { punkte, gruppen, diag, raster } = ebenenFinden(geometrie);
+      if (gruppen.length === 0) return null;
+      const beste = gruppen.reduce((m, g) => (g.flaeche > m.flaeche * (1 + 1e-9) ? g : m));
+      return ebeneFlach(beste, punkte, raster);
+    }
+
+    // a) + b): Eckpunkte zusammenfassen und Dreiecke nach Ebenen sortieren
+    // (wird auch zum Zerlegen von Treppen in einzelne Stufen gebraucht, siehe 3e)
+    function ebenenFinden(geometrie) {
       const pos = geometrie.attributes.position;
       const box = new THREE.Box3().setFromBufferAttribute(pos);
       const diag = box.getSize(new THREE.Vector3()).length() || 1;
@@ -1032,9 +1110,11 @@
         g.flaeche += doppelFlaeche / 2;
         g.dreiecke.push([i, j, k]);
       }
-      if (gruppen.length === 0) return null;
-      const beste = gruppen.reduce((m, g) => (g.flaeche > m.flaeche * (1 + 1e-9) ? g : m));
+      return { punkte, gruppen, diag, raster };
+    }
 
+    // c) – f): Eine Ebene flach in 2D legen und ihren Rand (Außenkante + Löcher) als Linienzüge holen
+    function ebeneFlach(beste, punkte, raster) {
       // c) Diese Ebene in 2D drehen: „oben“ bleibt oben (bei Böden/Decken zeigt Norden nach oben)
       const n = beste.normale;
       const oben = Math.abs(n.y) > 0.9 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
@@ -1245,7 +1325,7 @@
         const name = t.name.toLowerCase(), b = kaesten[i];
         const ny = t.flach ? Math.abs(t.flach.n.y) : 0;
         let g;
-        if (typ.startsWith('IFCSTAIR') || /treppe|stair|stufe/.test(name)) g = 'treppe';
+        if (u.treppenTeil || typ.startsWith('IFCSTAIR') || /treppe|stair|stufe/.test(name)) g = 'treppe';
         else if (typ === 'IFCROOF' || art === 'ROOF' || /dach|roof/.test(name)) g = 'dach';
         else if (art === 'BASESLAB' || /bodenplatte|fundament|^boden/.test(name)) g = 'boden';
         else if (art === 'FLOOR' || art === 'LANDING' || /decke|ceiling|floor/.test(name)) g = 'decke';
@@ -2219,6 +2299,11 @@
       document.querySelectorAll('#eigene-liste input').forEach(h => {
         h.checked = flacheTeile[h.dataset.nr - 1]?.gewaehlt !== false;
       });
+      // Schalter „Treppenwangen mit ausschneiden“: nur da, wenn es Wangen gibt; an = alle Wangen gewählt
+      const wangen = flacheTeile.filter(t => t.mesh.userData?.treppenTeil === 'wange');
+      const schalter = document.getElementById('wangen-schalter');
+      schalter.hidden = !wangen.length;
+      schalter.setAttribute('aria-checked', String(wangen.length > 0 && wangen.every(t => t.gewaehlt !== false)));
       if (!neu) return;
       laserNeuBerechnen();
       hervorgehoben = -1;                        // 3D-Modell neu einfärben
@@ -2235,6 +2320,11 @@
       return `${gewaehlt} von ${flacheTeile.length} Bauteilen` + (ohne.length ? ` · ohne ${ohne.join(', ')}` : '');
     }
 
+    document.getElementById('wangen-schalter').addEventListener('click', ev => {
+      const an = ev.currentTarget.getAttribute('aria-checked') !== 'true';
+      flacheTeile.filter(t => t.mesh.userData?.treppenTeil === 'wange').forEach(t => { t.gewaehlt = an; });
+      auswahlAktualisieren();
+    });
     document.getElementById('gruppen').addEventListener('change', ev => {
       const id = ev.target.dataset.gruppe;
       if (!id) return;

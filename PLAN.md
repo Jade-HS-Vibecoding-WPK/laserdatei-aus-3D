@@ -317,6 +317,20 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   (vorher ein Bogen mit spitzer Taille); die Taille ist dadurch rund, die Seiten bleiben 7 px auseinander.
   Getestet: alte und neue Form nebeneinander vergrößert verglichen.
 
+- 17.11.: **Treppe in Tritt- und Setzstufen zerlegt.** Eine Treppe (IFC-Treppe oder Objekt mit „Treppe/Stair/Stufe“ im
+  Namen) wird beim Laden in einzelne Bauteile aufgeteilt: **Trittstufen** (Flächen, die nach oben zeigen),
+  **Setzstufen** (senkrechte Flächen gegen die Laufrichtung, höchstens etwa eine Stufe hoch) und **Wangen** (die
+  großen Zickzack-Seitenflächen). Unter- und Rückseite fallen weg. Jedes Teil heißt z. B. „Treppe Trittstufe 3“,
+  „Treppe Setzstufe 3“, „Treppe Wange links“, steht einzeln im 3D-Modell, in der Bauteilliste, in Kachel 06 und
+  auf der Pappe und lässt sich so später zusammenkleben. Die Stöße folgen der Einstellung in Kachel 05
+  (z. B. ausgleichen: Stufen sitzen zwischen den Wangen; Auffalten: Stufen als Zickzack-Netz).
+  In Kachel 06 gibt es den Schalter **„Treppenwangen mit ausschneiden“** (nur sichtbar, wenn Wangen gefunden
+  wurden; Standard an) – je nachdem, ob die Treppe im Modell eigene Wangen hat.
+  Neue Testdatei `beispiel/testtreppe.obj` (massive gerade Treppe, 6 Stufen 175/280 mm, 1 m breit, mit Bodenplatte).
+  Getestet (1:50): 6 Trittstufen 5,6 × 20 mm, 6 Setzstufen 20 × 3,5 mm, 2 Wangen 33,6 × 21 mm (Zickzack mit 14 Ecken);
+  Schalter aus → 13 Teile, an → 15; stumpf/ausgleichen/Gehrung/Auffalten ohne Überlappung. OBJ-Testhaus liefert
+  Zeichen für Zeichen dieselbe SVG wie vorher (9 Vergleichsfälle).
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.
