@@ -373,6 +373,9 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   (1,5 px): abgerundetes Quadrat als Gehäuse, eine Linie als Band, ein kurzer Strich als Haken. Etwas kleiner
   (24 × 16 px); gemessen wird weiter an der Hakenspitze.
 
+- 17.11.: **Maßband als Mauszeiger wieder entfernt** (Wunsch der Nutzerin). Über den Platten bleibt der Mauszeiger
+  der normale Punkt, auch wenn das Maßband an ist. Das Messen selbst (Schalter „Maßband“) bleibt unverändert.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

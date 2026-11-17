@@ -380,12 +380,6 @@
       opacity: 0;
       transition: background-color 0.15s, width 0.15s, height 0.15s, margin 0.15s, opacity 0.15s;
     }
-    /* Mit eingeschaltetem Maßband wird der Punkt über den Platten zu einem kleinen Maßband.
-       Gemessen wird an der Spitze des Bandes (dem Haken links) – genau dort liegt die Mausposition. */
-    #punkt.massband { width: 24px; height: 16px; margin: -11.5px 0 0 -1px; background: transparent; }
-    #punkt.massband .massband-form { display: block; }
-    /* reduziert: nur Umrisslinien – Gehäuse, Band, Haken */
-    #punkt .massband-form * { fill: none; stroke: var(--akzent); stroke-width: 1.5; stroke-linecap: round; }
     /* Über dem 3D-Modell wird der Punkt zum Ring (zeigt: hier kann man drehen und bewegen) … */
     #punkt.ring { width: 24px; height: 24px; margin: -12px 0 0 -12px; background: transparent; }
     #punkt svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -436,7 +430,7 @@
   </script>
 </head>
 <body class="intro">
-  <div id="punkt" aria-hidden="true"><svg class="ring-form" viewBox="0 0 24 24"><path/></svg><svg class="massband-form" viewBox="0 0 24 16"><rect class="gehaeuse" x="12.5" y="2.5" width="10" height="10" rx="3"/><line class="band" x1="1" y1="11.5" x2="12.5" y2="11.5"/><line class="haken" x1="1" y1="9" x2="1" y2="13.5"/></svg></div>
+  <div id="punkt" aria-hidden="true"><svg class="ring-form" viewBox="0 0 24 24"><path/></svg></div>
   <header>
     <h1>LaserPrep</h1>
     <span class="slogan">unfold your ideas</span>
@@ -2912,9 +2906,6 @@ ${pfade}
           punkt.classList.toggle('weiss', aufOrange(el));
           punkt.classList.toggle('gross', !!el?.closest('button, a, select, input, .erledigt'));
           punkt.classList.toggle('ring', zieht3d || !!el?.closest(MODELL));
-          // Maßband eingeschaltet und Maus über einer Platte → Mauszeiger wird zum Maßband
-          punkt.classList.toggle('massband', document.getElementById('mass-schalter')?.getAttribute('aria-checked') === 'true'
-            && !!el?.closest('.platte .bild svg'));
           punkt.classList.add('sichtbar');
         });
       });
