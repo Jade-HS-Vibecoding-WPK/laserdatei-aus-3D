@@ -331,6 +331,17 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Schalter aus → 13 Teile, an → 15; stumpf/ausgleichen/Gehrung/Auffalten ohne Überlappung. OBJ-Testhaus liefert
   Zeichen für Zeichen dieselbe SVG wie vorher (9 Vergleichsfälle).
 
+- 17.11.: **Treppe mit echtem Archicad-Modell getestet und verbessert** (eigene Datei aus Semester 4, „PBM 2/Entwurf
+  10,03 IFC 4.ifc“, nur lokal geöffnet). Erkenntnis: Archicad schreibt eine Treppe dreifach in die IFC-Datei –
+  als Ganzes (IfcStair „Treppe-002“), als Lauf (Rohbau, IfcStairFlight „Lauf-002“) und die Beläge als eigene
+  Teile („Trittstufe-019“, „Setzstufe-019“ …, je 1–2 cm dicke Platten). Vorher entstanden dadurch 153 doppelte
+  Treppenteile. Neu: Das Ganze fällt weg, wenn es seine Einzelteile gibt; vorhandene Stufenplatten werden
+  genommen; vom Lauf werden dann nur die Wangen ausgeschnitten. Steckt alles in einem Körper, bleibt pro Stufe nur
+  die sichtbare Fläche: verdeckte Rohbauflächen unter dem Belag und schmale Kantenstreifen (Vorderkante) fallen weg.
+  Ergebnis Archicad-Treppe: 15 Trittstufen 24 × 5,8 mm, 15 Setzstufen, 2 Wangen (Zickzack-Band) – 78 statt 199
+  Teile im Modell; stumpf/ausgleichen/Gehrung/Auffalten ohne Überlappung. Testtreppe aus Rohbau + Belag in einem
+  Körper: 6 Trittstufen (310 mm mit Vorderkante), 6 Setzstufen (Belag), 2 Wangen. `testtreppe.obj` unverändert.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
 2. Doppelte Linien entfernen.

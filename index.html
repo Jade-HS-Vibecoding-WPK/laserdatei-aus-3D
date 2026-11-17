@@ -852,30 +852,65 @@
     const TREPPE = /treppe|stair|stufe/i;
     function istTreppe(m) { return String(m.userData?.ifcTyp || '').startsWith('IFCSTAIR') || TREPPE.test(m.name || ''); }
 
-    function treppeZerlegen(mesh) {
+    // nurWangen = true: Die Stufen gibt es im Modell schon als eigene Teile (z. B. Archicad-Stufenbelag);
+    // vom Treppenlauf werden dann nur noch die Wangen gebraucht.
+    function treppeZerlegen(mesh, nurWangen = false) {
       const { punkte, gruppen } = ebenenFinden(mesh.geometry);
       const box = new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);
       const hoehe = (box.max.y - box.min.y) || 1;
       const info = gruppen.map(g => {
         const ids = [...new Set(g.dreiecke.flat())];
-        let y0 = Infinity, y1 = -Infinity;
-        const mitte = new THREE.Vector3();
-        ids.forEach(i => { y0 = Math.min(y0, punkte[i].y); y1 = Math.max(y1, punkte[i].y); mitte.add(punkte[i]); });
-        return { g, y0, y1, mitte: mitte.divideScalar(ids.length) };
+        const kasten = new THREE.Box3().setFromPoints(ids.map(i => punkte[i]));
+        const mitte = ids.reduce((s, i) => s.add(punkte[i]), new THREE.Vector3()).divideScalar(ids.length);
+        return { g, y0: kasten.min.y, y1: kasten.max.y, kasten, mitte };
       });
-      const tritte = info.filter(e => e.g.normale.y > 0.9).sort((a, b) => a.y0 - b.y0);
-      if (tritte.length < 2) return null;                 // keine Stufen erkennbar → Treppe bleibt ein Teil
-      // Stufenhöhe = mittlerer Höhenunterschied zwischen zwei Trittstufen
-      const spruenge = tritte.slice(1).map((t, i) => t.y0 - tritte[i].y0).filter(d => d > hoehe * 1e-3).sort((a, b) => a - b);
-      const steigung = spruenge.length ? spruenge[Math.floor(spruenge.length / 2)] : hoehe;
-      // Laufrichtung (waagerecht) von der untersten zur obersten Trittstufe
-      const lauf = tritte[tritte.length - 1].mitte.clone().sub(tritte[0].mitte);
+      const alleTritte = info.filter(e => e.g.normale.y > 0.9).sort((a, b) => a.y0 - b.y0);
+      if (alleTritte.length < 2) return null;             // keine Stufen erkennbar → Treppe bleibt ein Teil
+      // Stufenhöhe: typischer Höhenunterschied zwischen zwei Trittflächen. Sehr kleine Sprünge
+      // (z. B. 2 cm Belag auf dem Rohbau) zählen nicht.
+      const spruenge = alleTritte.slice(1).map((t, i) => t.y0 - alleTritte[i].y0).filter(d => d > hoehe * 1e-3);
+      const groesster = Math.max(0, ...spruenge);
+      const gross = spruenge.filter(d => d > 0.3 * groesster).sort((a, b) => a - b);
+      const steigung = gross.length ? gross[Math.floor(gross.length / 2)] : hoehe;
+      // Laufrichtung (waagerecht) von der untersten zur obersten Trittfläche
+      const lauf = alleTritte[alleTritte.length - 1].mitte.clone().sub(alleTritte[0].mitte);
       lauf.y = 0;
       if (lauf.lengthSq() < 1e-12) return null;
       lauf.normalize();
       const rechts = new THREE.Vector3().crossVectors(lauf, new THREE.Vector3(0, 1, 0));
+      // Wie viel von Fläche a wird von Fläche b überdeckt (Anteil 0…1)? Gemessen an den Rechtecken drumherum,
+      // von oben gesehen (Trittflächen) bzw. von vorne (Setzflächen).
+      const ueberdeckt = (a, b, achsen) => {
+        let anteil = 1;
+        for (const [lo, hi] of achsen) {
+          const a0 = lo(a), a1 = hi(a), b0 = lo(b), b1 = hi(b);
+          const breite = a1 - a0;
+          if (breite > 1e-9) anteil *= Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / breite;
+        }
+        return anteil;
+      };
+      const seitlich = e => {        // Lage quer zur Laufrichtung (links–rechts)
+        const ecken = [];
+        for (const x of [e.kasten.min.x, e.kasten.max.x]) for (const z of [e.kasten.min.z, e.kasten.max.z]) ecken.push(x * rechts.x + z * rechts.z);
+        return [Math.min(...ecken), Math.max(...ecken)];
+      };
+      // Trittstufen: nur die oberste Fläche jeder Stufe. Eine Fläche fällt weg, wenn sie fast ganz unter einer
+      // höheren Fläche liegt (z. B. Rohbau unter dem Belag) oder ein winziger Streifen ist (z. B. Vorderkante).
+      const flaechen = alleTritte.map(e => e.g.flaeche).sort((a, b) => a - b);
+      const typisch = flaechen[Math.floor(flaechen.length / 2)];
+      const tritte = alleTritte.filter(e => e.g.flaeche >= 0.15 * typisch && !alleTritte.some(f =>
+        f !== e && f.y0 > e.y0 + hoehe * 1e-4 && f.y0 - e.y0 <= 1.5 * steigung &&
+        ueberdeckt(e, f, [[k => k.kasten.min.x, k => k.kasten.max.x], [k => k.kasten.min.z, k => k.kasten.max.z]]) >= 0.8));
+      // Setzstufen: senkrecht, gegen die Laufrichtung, etwa eine Stufe hoch (nicht nur ein Kantenstreifen) und nicht
+      // von einer Fläche direkt davor verdeckt (z. B. Rohbau hinter dem Belag)
       const senkrecht = info.filter(e => Math.abs(e.g.normale.y) < 0.1);
-      const setz = senkrecht.filter(e => e.y1 - e.y0 <= steigung * 1.5 && e.g.normale.dot(lauf) < -0.5).sort((a, b) => a.y0 - b.y0);
+      const setzKandidaten = senkrecht.filter(e => e.y1 - e.y0 <= steigung * 1.5 && e.y1 - e.y0 >= steigung * 0.3 && e.g.normale.dot(lauf) < -0.5);
+      const setz = setzKandidaten.filter(e => !setzKandidaten.some(f => {
+        if (f === e) return false;
+        const vorne = f.mitte.clone().sub(e.mitte).dot(lauf) * -1;           // wie weit f vor e liegt
+        return vorne > hoehe * 1e-4 && vorne <= steigung &&
+          ueberdeckt(e, f, [[k => seitlich(k)[0], k => seitlich(k)[1]], [k => k.y0, k => k.y1]]) >= 0.6;
+      })).sort((a, b) => a.y0 - b.y0);
       const wangen = senkrecht.filter(e => e.y1 - e.y0 > steigung * 1.5 && Math.abs(e.g.normale.dot(lauf)) < 0.5);
       const basis = mesh.name || 'Treppe';
       const teile = [];
@@ -891,8 +926,10 @@
         m.position.copy(mesh.position); m.quaternion.copy(mesh.quaternion); m.scale.copy(mesh.scale);
         teile.push(m);
       };
-      tritte.forEach((e, i) => neu(e, `${basis} Trittstufe ${i + 1}`, 'tritt'));
-      setz.forEach((e, i) => neu(e, `${basis} Setzstufe ${i + 1}`, 'setz'));
+      if (!nurWangen) {
+        tritte.forEach((e, i) => neu(e, `${basis} Trittstufe ${i + 1}`, 'tritt'));
+        setz.forEach((e, i) => neu(e, `${basis} Setzstufe ${i + 1}`, 'setz'));
+      }
       wangen.forEach(e => neu(e, `${basis} Wange ${e.g.normale.dot(rechts) > 0 ? 'rechts' : 'links'}`, 'wange'));
       return teile;
     }
@@ -902,15 +939,24 @@
       const fehler = document.getElementById('fehler');
       const bauteile = [];
       gruppe.traverse(obj => { if (obj.isMesh) bauteile.push(obj); });
-      // Treppen in Tritt- und Setzstufen (und Wangen) zerlegen – jede Stufe wird ein eigenes Bauteil
-      for (let i = bauteile.length - 1; i >= 0; i--) {
-        const m = bauteile[i];
-        if (!istTreppe(m)) continue;
-        const teile = treppeZerlegen(m);
-        if (!teile || !teile.length) continue;
-        const eltern = m.parent;
-        eltern.remove(m);
-        teile.forEach(t => eltern.add(t));
+      // Treppen in Tritt- und Setzstufen (und Wangen) zerlegen – jede Stufe wird ein eigenes Bauteil.
+      // Archicad schreibt eine Treppe oft dreifach in die IFC-Datei: als Ganzes (IfcStair), als Lauf
+      // (Rohbau, IfcStairFlight) und die Stufenbeläge als eigene Teile („Trittstufe-001“, „Setzstufe-001“).
+      // Dann fällt das Ganze weg (wäre doppelt), die Stufenbeläge bleiben, und vom Lauf werden nur die Wangen genommen.
+      const kastenVon = m => { m.geometry.computeBoundingBox(); return m.geometry.boundingBox.clone().expandByScalar(1e-6); };
+      const treppen = bauteile.filter(istTreppe).map(m => ({ m, kasten: kastenVon(m), typ: String(m.userData?.ifcTyp || '') }));
+      const daneben = (t, wer) => treppen.filter(o => o !== t && wer(o) && o.kasten.intersectsBox(t.kasten));
+      const istStufenTeil = o => !o.typ.startsWith('IFCSTAIR') && /tritt|setz|stufe|tread|riser/i.test(o.m.name || '');
+      for (const t of treppen) {
+        const i = bauteile.indexOf(t.m);
+        let teile;
+        if (t.typ === 'IFCSTAIR' && daneben(t, o => o.typ !== 'IFCSTAIR').length) teile = [];        // Ganzes doppelt → weg
+        else if (istStufenTeil(t)) continue;                                                          // ist schon eine Stufe
+        else teile = treppeZerlegen(t.m, daneben(t, istStufenTeil).length > 0);
+        if (!teile) continue;
+        const eltern = t.m.parent;
+        eltern.remove(t.m);
+        teile.forEach(n => eltern.add(n));
         bauteile.splice(i, 1, ...teile);
       }
       if (bauteile.length === 0) {
