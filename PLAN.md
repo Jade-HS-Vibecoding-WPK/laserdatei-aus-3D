@@ -24,7 +24,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] OBJ-Datei hochladen und 3D-Vorschau anzeigen
 - [x] Jedes Objekt als Platte erkennen und flach legen (Umriss + Öffnungen)
 - [x] Maßstab wählen (1:50, 1:100, 1:200, frei)
-- [ ] Doppelte/überlappende Linien automatisch entfernen
+- [x] Doppelte/überlappende Linien automatisch entfernen *(Absicherung vor dem Speichern; durch den Abstand entstehen bisher keine)*
 - [ ] Farbcodierung: Rot (Haarlinie 0,00 mm) = Schneiden, Blau = Anritzen, Gelb = Orientierungsrahmen, Schwarz = Gravur (Farben als Standard kann man aber auch individuell ändern) *(teilweise: Farben einstellbar; in der SVG gibt es bisher nur Schneiden + Orientierungsrahmen, Anritzen/Gravur folgen)*
 - [x] Materialplatte frei einstellbar (Breite × Höhe in mm), Teile automatisch darauf verteilen *(mehrere Sorten und Platten, Teile gedreht und dicht ineinander gelegt)*
 - [x] 2D-Vorschau der Laserplatte(n) im Browser
@@ -389,7 +389,16 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   wie in der SVG; Punkte stimmen (y gespiegelt: SVG 6/6 → DXF 6/444); Dateinamen …_1.svg / …_1.dxf; SVG Zeichen für
   Zeichen wie vorher (9 Vergleichsfälle). In AutoCAD selbst noch nicht geöffnet.
 
+- 17.11.: **Doppelte Linien entfernen (Absicherung).** Erst geprüft: In den heutigen Dateien liegen nie zwei Linien
+  übereinander (Testhaus, Walmdach, Testtreppe, alle vier Kanten-Optionen, Abstand 0 und 5 mm), weil zwischen den
+  Teilen immer etwas Luft ist. Auf Wunsch der Nutzerin trotzdem eine Absicherung: Vor dem Schreiben von SVG und DXF wird
+  jede Strecke mit den schon geschriebenen verglichen. Liegt sie (bis 0,005 mm daneben, über mehr als 0,01 mm) auf
+  einer vorhandenen Linie, fällt dieses Stück weg – auch nur teilweise überlappende Stücke. Schnittlinien haben Vorrang
+  vor Anritzlinien. Die Meldung sagt dann z. B. „4 doppelte Linien entfernt – dort schneidet der Laser nur einmal“.
+  Ohne Doppelungen bleibt die Datei Zeichen für Zeichen gleich (9 Vergleichsfälle). Getestet mit absichtlich
+  eingebauten Fehlern: doppelter Umriss → 1 Linienzug übrig; Rechteck mit halb aufliegender Kante → genau dieses Stück
+  entfernt, Rest als offener Linienzug; DXF genauso.
+
 ## Nächste Schritte
 1. Pappe je Gruppe wählen (Gruppen gibt es jetzt in Kachel 06).
-2. Doppelte Linien entfernen.
-3. Echtes Archicad-Modell testen (OBJ und IFC).
+2. Echtes Archicad-Modell testen (OBJ und IFC).

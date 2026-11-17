@@ -2268,7 +2268,11 @@
         (passtIrgendwo ? keinPlatz : zuGross).push(t.name);
       });
       if (!platten.length) platten.push({ pappe: liste[0], nr: 1, platziert: [] });
-      platten.forEach(p => { p.svg = svgErzeugen(p.platziert, p.pappe.breite, p.pappe.hoehe); });
+      platten.forEach(p => {
+        p.doppelt = doppelteLinien(p.platziert);        // doppelte Linien finden und weglassen (7a)
+        p.svg = svgErzeugen(p.platziert, p.pappe.breite, p.pappe.hoehe, p.doppelt);
+      });
+      const doppeltEntfernt = platten.reduce((s, p) => s + p.doppelt.entfernt, 0);
 
       // Hinweise
       const anzahlTeile = platten.reduce((s, p) => s + p.platziert.length, 0);
@@ -2285,6 +2289,12 @@
       meldung.className = meldungen.length ? '' : 'ok';
       meldung.textContent = meldungen.length ? meldungen.join(' ')
         : `Alle ${anzahlTeile} Teile passen auf ${platten.length === 1 ? '1 Platte' : platten.length + ' Platten'}.`;
+      if (doppeltEntfernt) {
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--grau)';
+        extra.textContent = ` ${doppeltEntfernt === 1 ? '1 doppelte Linie' : doppeltEntfernt + ' doppelte Linien'} entfernt – dort schneidet der Laser nur einmal.`;
+        meldung.appendChild(extra);
+      }
       if (e.kanten === 'ausgleichen' || e.kanten === 'gehrung') {
         const extra = document.createElement('span');
         extra.style.color = 'var(--grau)';
@@ -2796,19 +2806,84 @@
 
     // ---------- 7. Die SVG-Datei als Text schreiben ----------
     // Maße in mm: width="600mm" und viewBox 0 0 600 450 → 1 Einheit = 1 mm
-    function svgErzeugen(platziert, breite, hoehe) {
+    // ---------- 7a. Doppelte Linien entfernen (Absicherung) ----------
+    // Liegen zwei Linien auf einer Platte übereinander, würde der Laser dort zweimal schneiden (verbrennt die
+    // Kante, kostet Zeit). Vor dem Schreiben der Datei wird darum jede Strecke mit den schon geschriebenen
+    // verglichen: Was genau auf einer vorhandenen Linie liegt (bis 0,005 mm daneben, mehr als 0,01 mm lang),
+    // fällt weg. Schnittlinien haben Vorrang vor Anritzlinien. Gibt es nichts Doppeltes, bleibt die Datei
+    // Zeichen für Zeichen wie vorher. Alle Maße hier in mm auf der Platte (y nach unten, wie in der SVG).
+    function doppelteLinien(platziert) {
+      const behalten = [];                     // schon geschriebene Strecken [a, b]
+      let entfernt = 0;
+      // Teile der Strecke a–b, die noch auf keiner vorhandenen Linie liegen
+      const rest = (a, b) => {
+        const ux = b[0] - a[0], uy = b[1] - a[1], L = Math.hypot(ux, uy);
+        if (L < 1e-9) return [];
+        const ex = ux / L, ey = uy / L, bedeckt = [];
+        const x0 = Math.min(a[0], b[0]) - 0.01, x1 = Math.max(a[0], b[0]) + 0.01, y0 = Math.min(a[1], b[1]) - 0.01, y1 = Math.max(a[1], b[1]) + 0.01;
+        for (const [c, d] of behalten) {
+          if (Math.max(c[0], d[0]) < x0 || Math.min(c[0], d[0]) > x1 || Math.max(c[1], d[1]) < y0 || Math.min(c[1], d[1]) > y1) continue;
+          if (Math.abs((c[0] - a[0]) * ey - (c[1] - a[1]) * ex) > 0.005 || Math.abs((d[0] - a[0]) * ey - (d[1] - a[1]) * ex) > 0.005) continue;
+          const tc = (c[0] - a[0]) * ex + (c[1] - a[1]) * ey, td = (d[0] - a[0]) * ex + (d[1] - a[1]) * ey;
+          const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(L, Math.max(tc, td));
+          if (hi - lo > 0.01) bedeckt.push([lo, hi]);
+        }
+        if (!bedeckt.length) return [[a, b]];
+        entfernt++;
+        bedeckt.sort((p, q) => p[0] - q[0]);
+        const frei = [];
+        let t = 0;
+        for (const [lo, hi] of bedeckt) { if (lo - t > 0.01) frei.push([t, lo]); t = Math.max(t, hi); }
+        if (L - t > 0.01) frei.push([t, L]);
+        const punkt = s => (s <= 0 ? a : s >= L ? b : [a[0] + ex * s, a[1] + ey * s]);
+        return frei.map(([s0, s1]) => [punkt(s0), punkt(s1)]);
+      };
+      // Übrige Stücke eines Linienzugs wieder zu Linienzügen zusammensetzen
+      const pruefen = (punkte, zu) => {
+        const stuecke = [], n = zu ? punkte.length : punkte.length - 1;
+        let ganz = true;
+        for (let i = 0; i < n; i++) {
+          const a = punkte[i], b = punkte[(i + 1) % punkte.length];
+          const r = rest(a, b);
+          if (r.length !== 1 || r[0][0] !== a || r[0][1] !== b) ganz = false;
+          r.forEach(s => { stuecke.push(s); behalten.push(s); });
+        }
+        if (ganz) return [{ punkte, zu }];
+        const zuege = [];
+        stuecke.forEach(([a, b]) => {
+          const letzter = zuege[zuege.length - 1];
+          if (letzter && letzter.punkte[letzter.punkte.length - 1] === a) letzter.punkte.push(b);
+          else zuege.push({ punkte: [a, b], zu: false });
+        });
+        return zuege;
+      };
+      const teile = platziert.map(({ teil, x, y }) => {
+        const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];
+        return { schnitt: teil.zuege.flatMap(z => pruefen(z.map(lage), true)), ritz: [] };
+      });
+      platziert.forEach(({ teil, x, y }, i) => {   // Anritzlinien erst danach: Schnitt hat Vorrang
+        const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];
+        teile[i].ritz = (teil.ritzen || []).flatMap(l => pruefen(l.map(lage), false));
+      });
+      return { entfernt, teile };
+    }
+
+    function svgErzeugen(platziert, breite, hoehe, doppelt = doppelteLinien(platziert)) {
       const f = z => String(Math.round(z * 1000) / 1000);
       const schutz = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-      const pfade = platziert.map(({ teil, x, y }) => {
+      // Bereinigte Linienzüge (nur wenn wirklich etwas Doppeltes gefunden wurde)
+      const bereinigt = zuege => zuege.map(({ punkte, zu }) =>
+        'M' + punkte.map(([px, py]) => `${f(px)} ${f(py)}`).join(' L') + (zu ? ' Z' : '')).join(' ');
+      const pfade = platziert.map(({ teil, x, y }, i) => {
         // SVG zählt y nach unten, darum wird die Höhe umgedreht
-        const d = teil.zuege.map(z =>
+        const d = doppelt.entfernt ? bereinigt(doppelt.teile[i].schnitt) : teil.zuege.map(z =>
           'M' + z.map(([px, py]) => `${f(x + px - teil.minX)} ${f(y + teil.maxY - py)}`).join(' L') + ' Z'
         ).join(' ');
         return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
       }).join('\n');
       // Anritzlinien (Gehrung): eigene Gruppe in der Anritz-Farbe, nur wenn es welche gibt
-      const ritzPfade = platziert.filter(({ teil }) => teil.ritzen && teil.ritzen.length).map(({ teil, x, y }) => {
-        const d = teil.ritzen.map(l =>
+      const ritzPfade = platziert.map((q, i) => [q, i]).filter(([{ teil }]) => teil.ritzen && teil.ritzen.length).map(([{ teil, x, y }, i]) => {
+        const d = doppelt.entfernt ? bereinigt(doppelt.teile[i].ritz) : teil.ritzen.map(l =>
           'M' + l.map(([px, py]) => `${f(x + px - teil.minX)} ${f(y + teil.maxY - py)}`).join(' L')
         ).join(' ');
         return `    <path data-teil="${schutz(teil.name)}" d="${d}"/>`;
@@ -2872,10 +2947,10 @@ ${pfade}
       gruppe(0, 'ENDSEC');
       gruppe(0, 'SECTION'); gruppe(2, 'ENTITIES');
       linienzug('ORIENTIERUNG', [[0, 0], [breite, 0], [breite, hoehe], [0, hoehe]], true);   // Plattenrahmen
-      platziert.forEach(({ teil, x, y }) => {
-        const lage = ([px, py]) => [x + px - teil.minX, y + teil.maxY - py];               // wie in der SVG
-        teil.zuege.forEach(z => linienzug('SCHNEIDEN', z.map(lage), true));
-        (teil.ritzen || []).forEach(l => linienzug('ANRITZEN', l.map(lage), false));
+      // Linien wie in der SVG (Platten-mm), doppelte Linien schon entfernt (siehe 7a)
+      doppelteLinien(platziert).teile.forEach(({ schnitt, ritz }) => {
+        schnitt.forEach(({ punkte, zu }) => linienzug('SCHNEIDEN', punkte, zu));
+        ritz.forEach(({ punkte, zu }) => linienzug('ANRITZEN', punkte, zu));
       });
       gruppe(0, 'ENDSEC');
       gruppe(0, 'EOF');
