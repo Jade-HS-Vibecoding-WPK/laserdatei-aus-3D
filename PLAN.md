@@ -220,6 +220,12 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Hauses wird durchsichtig, und der Name in der Bauteilliste wird orange. Umgekehrt zeigt die Maus auf einem Namen
   in der Bauteilliste das Teil auch in der Vorschau. Getestet mit dem Walmdach-Haus.
 
+- 17.11.: **Bauteil im 3D-Modell anklicken**: Ein kurzer Klick auf eine Wand, Decke oder Dachfläche wählt das Bauteil
+  aus. Es leuchtet orange, der Rest des Hauses wird durchsichtig, in der Vorschau wird der passende Zuschnitt
+  hervorgehoben (mit Nummer + Name, Rest blass, die Seite scrollt bei Bedarf hin) und in der Bauteilliste markiert.
+  Die Auswahl bleibt, bis man im 3D-Modell ins Leere klickt; Darüberfahren über andere Teile zeigt diese kurz an.
+  Wer die Maus beim Klicken bewegt, dreht nur das Modell. Hinweiszeile im 3D-Feld ergänzt.
+
 ## Nächste Schritte
 1. Gruppen (Außenwände, Innenwände, Decke, Dach) und Pappe je Gruppe (Kachel 06).
 2. Doppelte Linien entfernen.

@@ -403,7 +403,7 @@
           OBJ- oder IFC-Datei hierher ziehen
         </div>
       </div>
-      <p class="steuerung">Linke Maustaste: drehen · Rechte Maustaste: verschieben · Mausrad: zoomen</p>
+      <p class="steuerung">Klick: Bauteil zeigen · Ziehen: drehen · Rechte Taste: verschieben · Rad: zoomen</p>
     </section>
 
     <!-- 03 Maßstab -->
@@ -743,6 +743,7 @@
       const liste = document.getElementById('teile');
       liste.innerHTML = '';
       flacheTeile = [];
+      ausgewaehlt = null;                      // neues Modell → alte Auswahl vergessen
       bauteile.forEach((teil, i) => {
         const name = teil.name || `Bauteil ${i + 1}`;
         const li = document.createElement('li');
@@ -1589,7 +1590,6 @@
 
     // Jede Platte als eigene Karte in der Vorschau, mit eigenem Download
     function vorschauZeichnen() {
-      if (hervorgehoben !== null) hervorheben(null);   // neu gezeichnet → Hervorhebung zurücksetzen
       const ort = document.getElementById('platten');
       ort.innerHTML = '';
       platten.forEach(p => {
@@ -1605,6 +1605,8 @@
         ort.appendChild(karte);
         teileBeschriften(karte.querySelector('.bild svg'), p);
       });
+      hervorgehoben = -1;                      // neu gezeichnet → ausgewähltes Teil wieder hervorheben
+      hervorheben(null);
       document.getElementById('herunterladen').textContent =
         platten.length === 1 ? 'SVG herunterladen' : `Alle ${platten.length} Platten herunterladen`;
     }
@@ -1645,8 +1647,12 @@
 
     // ---------- 6c. Ein Bauteil hervorheben (Vorschau, Bauteilliste und 3D-Modell) ----------
     // nr = Nummer aus der Bauteilliste (1, 2, …) oder null = nichts hervorheben
+    // Ein im 3D-Modell angeklicktes Bauteil bleibt ausgewählt, bis man ins Leere klickt.
+    // Fährt die Maus über ein anderes Teil, wird kurz dieses gezeigt, danach wieder die Auswahl.
     let hervorgehoben = null;
+    let ausgewaehlt = null;                  // Index des angeklickten Bauteils oder null
     function hervorheben(index) {
+      if (index === null) index = ausgewaehlt;
       const nr = index === null ? null : index + 1;
       if (nr === hervorgehoben) return;
       hervorgehoben = nr;
@@ -1672,6 +1678,33 @@
       hervorheben(el ? Number(el.dataset.nr) - 1 : null);
     });
     document.getElementById('platten').addEventListener('mouseleave', () => hervorheben(null));
+
+    // Bauteil im 3D-Modell anklicken → in Vorschau und Bauteilliste zeigen.
+    // Ein kurzer Klick wählt aus; wer die Maus dabei bewegt, dreht nur das Modell.
+    function auswaehlen(index) {
+      ausgewaehlt = index;
+      hervorgehoben = -1;                      // neu anwenden erzwingen
+      hervorheben(null);
+      if (index === null) return;
+      // Das Teil in der Vorschau ins Bild holen (nur so weit wie nötig)
+      document.querySelector(`.platte path.teil[data-nr="${index + 1}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    const strahl = new THREE.Raycaster();
+    let druckPunkt = null;
+    renderer.domElement.addEventListener('pointerdown', ev => { druckPunkt = [ev.clientX, ev.clientY]; });
+    renderer.domElement.addEventListener('pointerup', ev => {
+      if (!druckPunkt || ev.button !== 0) return;
+      const bewegt = Math.hypot(ev.clientX - druckPunkt[0], ev.clientY - druckPunkt[1]);
+      druckPunkt = null;
+      if (bewegt > 5 || !flacheTeile.length) return;   // war Drehen/Verschieben
+      const r = renderer.domElement.getBoundingClientRect();
+      const zeiger = new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+      strahl.setFromCamera(zeiger, kamera);
+      const meshes = flacheTeile.map(t => t.mesh);
+      const treffer = strahl.intersectObjects(meshes, false)[0];
+      auswaehlen(treffer ? meshes.indexOf(treffer.object) : null);
+    });
 
     // ---------- 6b. Laser-Farben (Kachel 04: Funktion ↔ Farbe) ----------
     // Jede Funktion bekommt eine Farbe. Standard nach unserer Konvention; eigene Farben
