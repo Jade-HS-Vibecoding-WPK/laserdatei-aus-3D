@@ -380,6 +380,15 @@
     .kachel:not(.aktiv) .vorschlag { border: 1px solid var(--linie); }
     .fuss { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     /* Dateiformat: drei Knöpfe nebeneinander, der gewählte ist gefüllt */
+    .anleitung { flex-basis: 100%; display: flex; align-items: center; gap: 8px 20px; flex-wrap: wrap;
+      padding: 14px 0; border-top: 1px solid var(--linie); border-bottom: 1px solid var(--linie); }
+    .anleitung label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .anleitung input { accent-color: var(--akzent); width: 16px; height: 16px; margin: 0; }
+    .anleitung .button { margin-left: auto; }
+    .kachel.aktiv .anleitung { border-color: rgba(255, 255, 255, 0.5); }
+    .kachel.aktiv .anleitung input { accent-color: #fff; }
+    .kachel.aktiv .anleitung .button { background: transparent; color: #fff; box-shadow: inset 0 0 0 2px #fff; }
+    .kachel.aktiv .anleitung .button:hover { background: rgba(255, 255, 255, 0.15); }
     .format { display: inline-flex; border: 1.5px solid var(--akzent); border-radius: var(--rund-klein); overflow: hidden; }
     .format label { cursor: pointer; }
     .format input { position: absolute; opacity: 0; pointer-events: none; }
@@ -808,6 +817,15 @@
           <button class="schalter" id="mass-schalter" role="switch" aria-checked="false" hidden
             title="Maßband: Maus auf eine Kante zeigt ihre Länge; zwei Klicks messen eine Strecke (Esc löscht)"><span class="spur"><span class="knopf"></span></span>Maßband</button>
           <p id="meldung"></p>
+          <!-- Bauanleitung: druckbare Seite (Drucken → „Als PDF speichern“), Inhalt per Häkchen wählbar -->
+          <div class="anleitung" id="anleitung" hidden>
+            <strong>Bauanleitung</strong>
+            <label><input type="checkbox" value="teile" checked> Teileliste</label>
+            <label><input type="checkbox" value="schritte" checked> Bauschritte</label>
+            <label><input type="checkbox" value="bilder" checked> Bilder vom Modell</label>
+            <label><input type="checkbox" value="kleben" checked> Kanten &amp; Kleben</label>
+            <button class="button zweit" id="anleitung-knopf">Bauanleitung öffnen</button>
+          </div>
           <!-- Dateiformat zum Herunterladen -->
           <div class="format" role="radiogroup" aria-label="Dateiformat">
             <label><input type="radio" name="format" value="svg" checked><span>SVG</span></label>
@@ -3383,7 +3401,171 @@ ${pfade}
       document.getElementById('herunterladen').textContent =
         platten.length === 1 ? `${name} herunterladen` : `Alle ${platten.length} Platten als ${name}`;
       document.getElementById('format-hinweis').hidden = format() !== 'dwg';
+      document.getElementById('anleitung').hidden = !platten.length;
     }
+
+    // ---------- 7d. Bauanleitung (Kachel 08) ----------
+    // Eine eigene, druckbare Seite: Material & Werkzeug, Hinweise zu Kanten und Kleben, Bauschritte nach
+    // Gruppen (Bodenplatte → Wände → Treppe → Decken → Dach) mit Bildern vom 3D-Modell und eine Teileliste
+    // mit den Platten. Was hineinkommt, bestimmen die Häkchen. Speichern als PDF über „Drucken“ im Browser.
+    const BAU_REIHENFOLGE = ['boden', 'aussenwand', 'innenwand', 'wand', 'treppe', 'decke', 'dach', 'sonstige'];
+    const KANTEN_NAME = { stumpf: 'stumpf', ausgleichen: 'Materialstärke ausgleichen', gehrung: 'Gehrung von Hand', auffalten: 'Auffalten' };
+    const KANTEN_TIPPS = {
+      stumpf: ['Die Teile haben genau die Maße aus dem Modell. An jeder Ecke überlappen zwei Platten um die Pappdicke.',
+        'Überstände nach dem Kleben mit dem Cutter oder Schleifpapier glätten.'],
+      ausgleichen: ['Die Kanten sind schon um die Pappdicke gekürzt: Die durchlaufende Platte zuerst aufstellen, das gekürzte Teil stumpf dagegen kleben – außen bündig.',
+        'Nichts nachschneiden – die Maße passen, wenn du in der Reihenfolge der Bauschritte klebst.'],
+      gehrung: ['Die blaue Anritzlinie liegt auf der Innenseite. Schleife die Kante von dieser Linie bis zur Außenkante schräg ab (bei rechten Winkeln auf 45°), am besten mit einem Schleifklotz.',
+        'Die beiden schrägen Kanten treffen sich dann außen genau in der Ecke.'],
+      auffalten: ['Blaue Linien sind Knicke: Dort ist die Pappe nur angeritzt. Vorsichtig entlang der Linie falten – probiere den Knick vorher an einem Reststück aus.',
+        'Kanten, die geschnitten statt geknickt sind, werden stumpf aneinandergeklebt (wie bei „Materialstärke ausgleichen“).']
+    };
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+    // Bild vom 3D-Modell: zustand(t) → 'aktiv' (orange), 'fertig' (grau) oder null (ausgeblendet).
+    // Blickrichtung wie im kleinen Modell der Vorschau, Abstand so, dass alles ins Bild passt.
+    let bildRenderer = null;
+    function modellBild(zustand) {
+      if (!modell) return '';
+      if (!bildRenderer) {
+        bildRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        bildRenderer.setClearColor(0xffffff);
+        bildRenderer.setSize(1000, 620, false);
+      }
+      flacheTeile.forEach(t => {
+        const z = zustand(t);
+        t.mesh.visible = z !== null;
+        const m = t.mesh.material;
+        m.color.set(z === 'aktiv' ? AKZENT : 0xe4e4e4);
+        m.transparent = false; m.opacity = 1; m.depthWrite = true; m.needsUpdate = true;
+      });
+      const kugel = new THREE.Box3().setFromObject(modell).getBoundingSphere(new THREE.Sphere());
+      const kam = new THREE.PerspectiveCamera(35, 1000 / 620, kugel.radius / 100, kugel.radius * 100);
+      const richtung = kamera2.position.clone().sub(steuerung2.target).normalize();
+      kam.position.copy(kugel.center).addScaledVector(richtung, kugel.radius / Math.sin(THREE.MathUtils.degToRad(35 / 2)) * 1.02);
+      kam.lookAt(kugel.center);
+      bildRenderer.render(szene, kam);
+      const bild = bildRenderer.domElement.toDataURL('image/png');
+      flacheTeile.forEach(t => { t.mesh.visible = true; });
+      hervorgehoben = -1;                      // Farben im Modell wiederherstellen
+      hervorheben(null);
+      return bild;
+    }
+
+    function anleitungErzeugen(wahl) {
+      const e = einstellungen();
+      // Jedes Stück auf den Platten (Teil oder gefaltetes Netz) mit Nummer, Gruppe, Größe und Platte
+      const stuecke = [];
+      platten.forEach(p => p.platziert.forEach(({ teil, quelle }) => {
+        if (!quelle) return;
+        const nrs = quelle.t.nrs || [quelle.t.nr];
+        stuecke.push({
+          nrs, nummer: nrs.map(n => String(n).padStart(2, '0')).join('+'), name: quelle.t.name,
+          gruppe: quelle.t.gruppe || flacheTeile[nrs[0] - 1]?.gruppe || 'sonstige',
+          masse: `${runde(teil.b)} × ${runde(teil.h)} mm`, platte: `${p.pappe.name || 'Pappe'} ${p.nr}`
+        });
+      }));
+      stuecke.sort((a, b) => a.nrs[0] - b.nrs[0]);
+      const gruppeName = g => (GRUPPEN.find(x => x.id === g) || { name: g === 'wand' ? 'Wände' : 'Sonstige Bauteile' }).name;
+      const aufPappe = new Set(stuecke.flatMap(s => s.nrs));
+      const schritte = BAU_REIHENFOLGE.map(g => ({ g, stuecke: stuecke.filter(s => s.gruppe === g) })).filter(s => s.stuecke.length);
+      const rest = stuecke.filter(s => !BAU_REIHENFOLGE.includes(s.gruppe));
+      if (rest.length) schritte.push({ g: 'sonstige', stuecke: rest });
+
+      // Material: jede Pappe mit Dicke und Anzahl der Platten
+      const material = new Map();
+      platten.forEach(p => {
+        const k = `${p.pappe.name || 'Pappe'} · ${runde(p.pappe.dicke)} mm · ${p.pappe.breite} × ${p.pappe.hoehe} mm`;
+        material.set(k, (material.get(k) || 0) + 1);
+      });
+
+      let teile = '';
+      teile += `<header><p class="marke">LaserPrep · Bauanleitung</p><h1>${esc(dateiBasis)}</h1>
+        <p class="info">Maßstab 1:${esc(e.massstab)} · Kanten: ${esc(KANTEN_NAME[e.kanten] || e.kanten)} · ${stuecke.length} Teile auf ${platten.length} ${platten.length === 1 ? 'Platte' : 'Platten'} · ${new Date().toLocaleDateString('de-DE')}</p>
+        <button onclick="print()">Drucken / als PDF speichern</button></header>`;
+
+      if (wahl.has('kleben')) {
+        const tipps = [...(KANTEN_TIPPS[e.kanten] || []),
+          'Kleber sparsam auftragen (Weißleim oder Alleskleber), Ecken mit einem Winkel prüfen und kurz trocknen lassen.',
+          'Die Teilnummern stehen nicht auf der Pappe: Lege die Teile nach dem Lasern gleich auf den Plan der Platten (Teileliste) oder beschrifte sie mit Bleistift auf der Innenseite.'];
+        if (platten.some(p => p.platziert.some(x => x.teil.gravur))) tipps.push('Teile mit Fassaden-Textur: Die gravierte Seite gehört nach außen.');
+        teile += `<section><h2>Bevor du anfängst</h2>
+          <h3>Material</h3><ul>${[...material].map(([k, n]) => `<li>${n} × ${esc(k)}</li>`).join('')}</ul>
+          <h3>Werkzeug</h3><ul><li>Cutter und Schneidematte</li><li>Kleber (Weißleim oder Alleskleber)</li><li>Winkel oder Geodreieck</li>${e.kanten === 'gehrung' ? '<li>Schleifklotz oder Schleifpapier</li>' : ''}</ul>
+          <h3>Kanten &amp; Kleben</h3><ul>${tipps.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>`;
+      }
+
+      if (wahl.has('schritte')) {
+        const fertig = new Set();
+        teile += `<section><h2>Bauschritte</h2>`;
+        schritte.forEach((s, i) => {
+          const jetzt = new Set(s.stuecke.flatMap(x => x.nrs));
+          const bild = wahl.has('bilder')
+            ? modellBild(t => (jetzt.has(t.nr) ? 'aktiv' : fertig.has(t.nr) ? 'fertig' : null)) : '';
+          teile += `<article class="schritt"><h3><span>${i + 1}</span>${esc(gruppeName(s.g))}</h3>
+            ${bild ? `<img src="${bild}" alt="Schritt ${i + 1}: ${esc(gruppeName(s.g))}">` : ''}
+            <p>${i === 0 ? 'Fang mit diesen Teilen an' : 'Klebe diese Teile an das, was schon steht'} (im Bild orange${i ? ', bereits gebaut: grau' : ''}):</p>
+            <ul class="spalten">${s.stuecke.map(x => `<li><b>${x.nummer}</b> ${esc(x.name)} <small>${esc(x.platte)}</small></li>`).join('')}</ul></article>`;
+          jetzt.forEach(n => fertig.add(n));
+        });
+        teile += `</section>`;
+      } else if (wahl.has('bilder')) {
+        teile += `<section><h2>Das fertige Modell</h2><img src="${modellBild(t => (aufPappe.has(t.nr) ? 'fertig' : null))}" alt="Modell"></section>`;
+      }
+
+      if (wahl.has('teile')) {
+        teile += `<section class="neue-seite"><h2>Teileliste</h2>
+          <table><thead><tr><th>Nr.</th><th>Bauteil</th><th>Gruppe</th><th>Größe auf der Pappe</th><th>Platte</th></tr></thead><tbody>
+          ${stuecke.map(x => `<tr><td><b>${x.nummer}</b></td><td>${esc(x.name)}</td><td>${esc(gruppeName(x.gruppe))}</td><td>${x.masse}</td><td>${esc(x.platte)}</td></tr>`).join('')}
+          </tbody></table>`;
+        // Die Platten aus der Vorschau, mit Nummer und Name auf jedem Teil
+        document.querySelectorAll('.platte').forEach(karte => {
+          const svg = karte.querySelector('.bild svg')?.cloneNode(true);
+          if (!svg) return;
+          svg.classList.remove('hervor');
+          svg.querySelectorAll('.aktiv-teil').forEach(el => el.classList.remove('aktiv-teil'));
+          svg.removeAttribute('width'); svg.removeAttribute('height');
+          teile += `<figure class="platte-plan"><figcaption>${esc(karte.querySelector('strong').textContent)}</figcaption>${svg.outerHTML}</figure>`;
+        });
+        teile += `</section>`;
+      }
+
+      return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bauanleitung ${esc(dateiBasis)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0 auto; max-width: 900px; padding: 32px 24px 64px; font-family: 'Space Grotesk', Arial, sans-serif; color: #111; background: #fff; line-height: 1.45; }
+  .marke { color: #ff6a00; font-weight: 700; margin: 0; letter-spacing: 0.02em; }
+  h1 { font-size: 40px; margin: 4px 0 8px; } h2 { font-size: 26px; margin: 40px 0 12px; border-top: 2px solid #ff6a00; padding-top: 12px; }
+  h3 { font-size: 18px; margin: 20px 0 6px; } .info { color: #777; margin: 0 0 16px; }
+  header button { font: inherit; font-weight: 700; background: #ff6a00; color: #fff; border: 0; border-radius: 999px; padding: 10px 22px; cursor: pointer; }
+  ul { padding-left: 20px; } li { margin: 3px 0; } small { color: #777; margin-left: 6px; }
+  .spalten { columns: 2; column-gap: 32px; } .spalten li { break-inside: avoid; }
+  .schritt { break-inside: avoid; margin-bottom: 28px; }
+  .schritt h3 span { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #ff6a00; color: #fff; margin-right: 10px; font-size: 15px; }
+  img { display: block; width: 100%; max-width: 760px; border: 1px solid #ddd; border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #ddd; }
+  th { color: #777; font-weight: 500; }
+  .platte-plan { margin: 24px 0; break-inside: avoid; } .platte-plan figcaption { font-weight: 700; margin-bottom: 6px; }
+  .platte-plan svg { width: 100%; height: auto; border: 1px solid #ddd; }
+  .platte-plan svg path { vector-effect: non-scaling-stroke; stroke-width: 0.8px; }
+  .platte-plan svg .beschriftung { fill: #111; font-family: 'Space Grotesk', Arial, sans-serif; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+  @media print { header button { display: none; } body { padding: 0; } .neue-seite { break-before: page; } h2 { break-after: avoid; } }
+</style></head><body>${teile}</body></html>`;
+    }
+
+    document.getElementById('anleitung-knopf').addEventListener('click', () => {
+      const wahl = new Set([...document.querySelectorAll('#anleitung input:checked')].map(h => h.value));
+      if (!wahl.size) { document.getElementById('meldung').textContent = 'Wähle mindestens einen Teil der Bauanleitung aus.'; return; }
+      const url = URL.createObjectURL(new Blob([anleitungErzeugen(wahl)], { type: 'text/html' }));
+      // Neue Seite öffnen; blockiert der Browser das, wird die Anleitung als HTML-Datei gespeichert
+      if (!window.open(url, '_blank')) {
+        const link = document.createElement('a');
+        link.href = url; link.download = `${dateiBasis}_Bauanleitung.html`;
+        document.body.appendChild(link); link.click(); link.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    });
     document.querySelector('.format').addEventListener('change', formatZeigen);
 
     ['einheit', 'massstab', 'frei', 'kanten', 'abstand'].forEach(id =>
@@ -3544,7 +3726,7 @@ ${pfade}
     }
 
     // Für Tests: Modell direkt aus Text laden
-    window.laserprep = { zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile, ueberlappungen,
+    window.laserprep = { anleitung: w => anleitungErzeugen(new Set(w || ['teile', 'schritte', 'bilder', 'kleben'])), zeigeModell, zeigeIfc, svg: () => platten[0]?.svg, svgs: () => platten.map(p => p.svg), pappen, neu: laserNeuBerechnen, teile: () => flacheTeile, ueberlappungen,
       vorschlagModus: an => pappeModusSetzen(an), vorschlag: () => vorschlag };  </script>
 
   <!-- ---------- Intro-Animation ----------
