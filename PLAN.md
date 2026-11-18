@@ -35,7 +35,7 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Mehrere Pappsorten (Name, Größe, Dicke, Anzahl) und mehrere Platten
 - [x] „Ich habe noch keine Pappe“: LaserPrep schlägt das handelsübliche Format mit dem wenigsten Rest vor (begrenzt aufs Laserbett)
 - [x] Farben individuell zuordnen (Funktion ↔ Farbe)
-- [ ] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen *(teilweise: Gruppen + Auswahl was gelasert wird; Pappe je Gruppe fehlt)*
+- [x] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört) *(teilweise: Nummer + Name in der Vorschau, Hervorheben im 3D-Modell; Gravur in der Datei bewusst nicht)*
 - [ ] Teile in der Vorschau einzeln drehen/verschieben
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
