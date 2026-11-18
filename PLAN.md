@@ -452,6 +452,14 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   sie als HTML-Datei gespeichert. Netze beim Auffalten erscheinen als ein Stück („03+04+05+06“).
   Getestet (OBJ-Testhaus 1:50): stumpf → 3 Schritte mit Bildern, 6 Teile, 1 Plattenplan; Auffalten → Netz als ein
   Eintrag, Knick-Hinweis; nur „Teileliste“ → keine Bilder/Schritte; Modellfarben danach wie vorher; 0 Überlappungen.
+- 18.11.: **Online-Bauanleitung** (Kachel 08, Knopf „Online ansehen“ neben „Bauanleitung öffnen“). Öffnet eine große
+  Ansicht über der App: links das 3D-Modell zum Drehen/Zoomen (eigene Kamera, Start-Blick wie im kleinen Modell),
+  rechts der Schritt mit Teileliste (Nr., Name, Platte), Punkte zum Springen und „Zurück / Weiter“ (auch Pfeiltasten,
+  Esc schließt). Aktueller Schritt orange, schon gebaute Teile hellgrau, spätere durchsichtig mit blassen Kanten,
+  nicht gelaserte Teile ausgeblendet; Maus über einem Teil der Liste → nur dieses bleibt kräftig orange. Letzter Schritt
+  „Geschafft!“ zeigt das fertige Modell. Schmale Fenster: Modell oben, Schritt darunter. Gleiche Schritte wie die PDF
+  (gemeinsame Funktion `bauDaten`). Getestet (OBJ-Testhaus): 3 Schritte + Fertig, Farben/Durchsichtigkeit stimmen,
+  Drehen per Maus, nach dem Schließen Modell wieder wie vorher, 0 Überlappungen.
 
 ## Nächste Schritte
 1. Teile in der Vorschau einzeln drehen/verschieben (wäre gut).
