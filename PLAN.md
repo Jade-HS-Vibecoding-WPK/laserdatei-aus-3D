@@ -443,6 +443,15 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   Getestet (OBJ-Testhaus 1:50): ohne Zuordnung SVG Zeichen für Zeichen wie vorher (9 Fälle); zweite Sorte „Karton“ 1 mm,
   Außenwände → Karton: 2 Platten (Boden+Decke auf Graupappe, 4 Wände auf Karton); ausgleichen: Wände 66 mm hoch, mit
   Boden/Decke fest auf Graupappe 2 mm 64 mm (zwischen den 2-mm-Platten), Querwände 78 mm; 0 Überlappungen.
+- 18.11.: **Bauanleitung** (Kachel 08, über den Download-Knöpfen). Vier Häkchen wählen, was hineinkommt:
+  **Teileliste** (Tabelle Nr./Bauteil/Gruppe/Größe/Platte plus der Plan jeder Platte mit Nummer und Name auf jedem Teil),
+  **Bauschritte** (nach Gruppen: Bodenplatte → Außen-/Innenwände → Treppe → Decken → Dach → Sonstiges),
+  **Bilder vom Modell** (je Schritt ein Bild: neue Teile orange, schon gebaute grau, spätere ausgeblendet; Blick wie
+  im kleinen Modell der Vorschau) und **Kanten & Kleben** (Material, Werkzeug, Tipps je Kanten-Modus). „Bauanleitung
+  öffnen“ öffnet eine eigene Seite mit Knopf „Drucken / als PDF speichern“; blockiert der Browser neue Fenster, wird
+  sie als HTML-Datei gespeichert. Netze beim Auffalten erscheinen als ein Stück („03+04+05+06“).
+  Getestet (OBJ-Testhaus 1:50): stumpf → 3 Schritte mit Bildern, 6 Teile, 1 Plattenplan; Auffalten → Netz als ein
+  Eintrag, Knick-Hinweis; nur „Teileliste“ → keine Bilder/Schritte; Modellfarben danach wie vorher; 0 Überlappungen.
 
 ## Nächste Schritte
 1. Teile in der Vorschau einzeln drehen/verschieben (wäre gut).
