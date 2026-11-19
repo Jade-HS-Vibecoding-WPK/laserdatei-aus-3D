@@ -1,14 +1,19 @@
 # LaserPrep
 *unfold your ideas*
 
-**LaserPrep** macht aus einem 3D-Modell (z. B. aus Archicad) fertige Laserdateien für den Architektur-Modellbau.
+**LaserPrep macht aus einem 3D-Modell (OBJ oder IFC, z. B. aus Archicad) fertige Laserdateien für den Architektur-Modellbau – flach gelegt, im Maßstab, platzsparend angeordnet und mit Bauanleitung.**
+
+👉 **Live-Demo:** [jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D](https://jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D/)
+
+![Startseite von LaserPrep: Bento-Grid mit den Schritten 01 Pappe bis 08 Vorschau und dem Feld für das 3D-Modell](docs/screenshots/01_startseite.png)
+
 Die App legt jedes Bauteil flach hin, verkleinert es auf den Modellmaßstab, ordnet alle Teile platzsparend auf der
 Pappe an und speichert sie als SVG oder DXF, mit der richtigen Laser-Farbcodierung. Dazu gibt es eine
-Bauanleitung als PDF und als drehbares 3D-Modell.
+Bauanleitung als PDF und als drehbares 3D-Modell. Ohne Installation, ohne Anmeldung – alles läuft im Browser,
+die Modelle verlassen deinen Rechner nicht.
 
-**Online ausprobieren:** https://jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D/
-
-Ohne Installation, ohne Anmeldung. Alles läuft im Browser, die Modelle verlassen deinen Rechner nicht.
+![Laser-Vorschau (Kachel 08): links das 3D-Modell, rechts die Pappe mit allen Teilen; die Wand „03 Wand_Sued“ ist in beiden Ansichten orange hervorgehoben](docs/screenshots/02_laservorschau.png)
+*Die wichtigste Funktion: die Laser-Vorschau. Fährt man über ein Teil auf der Pappe, leuchtet es auch im 3D-Modell.*
 
 ---
 
@@ -109,18 +114,51 @@ Im Ordner `beispiel/`:
 - SVG und DXF werden direkt in der Seite als Text erzeugt.
 - Veröffentlicht über GitHub Pages. Lokal geht es auch: `index.html` im Browser öffnen.
 
-### Verwendete Bibliotheken
-- [three.js](https://threejs.org) r160 – 3D-Darstellung und OBJ-Import, MIT-Lizenz
-- [web-ifc](https://github.com/ThatOpen/engine_web-ifc) 0.0.78 – IFC-Dateien lesen, MPL-2.0-Lizenz
-  (unverändert per CDN eingebunden)
-- [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) – Schrift, SIL Open Font License (OFL), über Google Fonts
-
 ---
 
 ## Projekt
 
 Entstanden im Wahlpflichtkurs „Vibecoding KI-Werkstatt“ an der Jade Hochschule (Wintersemester 2026/27) –
-gebaut aus dem Architekturstudium heraus, ohne Programmierkenntnisse, zusammen mit Claude Code.
+gebaut aus dem Architekturstudium heraus, ohne Programmierkenntnisse.
 Wie es geplant und Schritt für Schritt gebaut wurde, steht in [PLAN.md](PLAN.md).
 
-Lizenz: [MIT](LICENSE)
+---
+
+## Quellen und Lizenzen
+
+| Was | Wofür | Lizenz |
+|---|---|---|
+| [three.js](https://threejs.org) r160 | 3D-Darstellung, OBJ-Import, Kamera-Steuerung (OrbitControls) | MIT |
+| [web-ifc](https://github.com/ThatOpen/engine_web-ifc) 0.0.78 | IFC-Dateien lesen (unverändert per CDN eingebunden) | MPL-2.0 |
+| [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) | Schrift der App und der Bauanleitung (über Google Fonts) | SIL Open Font License (OFL) |
+| [jsDelivr](https://www.jsdelivr.com) | CDN, über das three.js und web-ifc geladen werden | kostenloser Dienst |
+
+- Alles andere ist selbst erstellt: der Code in `index.html` (Flachlegen, Anordnen, Kanten-Varianten, Auffalten,
+  SVG- und DXF-Ausgabe, Bauanleitung), die Fassaden-Texturen und die Beispielmodelle in `beispiel/`.
+- Die Laser-Konventionen (Farben, Haarlinie, keine doppelten Linien) sind die üblichen Standards für den Laser
+  und stehen in [CLAUDE.md](CLAUDE.md).
+- Die Screenshots in `docs/screenshots/` sind von der Live-Demo aufgenommen.
+
+**Lizenz des Projekts:** [MIT](LICENSE) – darf frei genutzt, verändert und weitergegeben werden, solange der
+Lizenzhinweis erhalten bleibt.
+
+---
+
+## KI-Nutzung
+
+LaserPrep ist mit KI entstanden („Vibecoding“). Der gesamte Code wurde von **Claude Code** (Anthropic, Modell
+Claude Opus) geschrieben – auf Deutsch beschrieben, Schritt für Schritt besprochen und gebaut.
+
+**Was ich selbst gemacht habe:**
+- Idee, Ziel und Funktionsumfang (MVP mit Must / Should / Could in [PLAN.md](PLAN.md))
+- alle Entscheidungen: welche Funktion als Nächstes kommt und wie sie aussehen und funktionieren soll
+  (z. B. die vier Kanten-Varianten, Texturen, Bauanleitung, Mauszeiger, Gestaltung im Swiss Style)
+- die Regeln für die KI in [CLAUDE.md](CLAUDE.md): erst fragen, dann bauen; jede Funktion testen, committen und
+  in PLAN.md festhalten; nur freie Bibliotheken
+- Testen mit echten Modellen: eigenes Archicad-Modell als IFC, geöffnete DXF-Dateien in AutoCAD
+
+**Was die KI gemacht hat:**
+- den Code geschrieben, getestet (u. a. automatische Prüfungen im Browser) und erklärt
+- Testmodelle erzeugt, Commits geschrieben, die README mitformuliert und die Screenshots aufgenommen
+
+Die Commits der KI sind in der Git-Historie mit „Co-Authored-By: Claude“ gekennzeichnet.
