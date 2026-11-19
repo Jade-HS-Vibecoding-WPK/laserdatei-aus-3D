@@ -37,19 +37,19 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
 - [x] Farben individuell zuordnen (Funktion ↔ Farbe)
 - [x] Bauteile in Gruppen (Außenwände, Innenwände, Decke, Dach), automatisch vorsortiert und änderbar; Pappe je Gruppe wählen
 - [ ] Teilenummern als Gravur auf jedes Teil (und in der 3D-Vorschau anzeigen, wo das Teil hingehört) *(teilweise: Nummer + Name in der Vorschau, Hervorheben im 3D-Modell; Gravur in der Datei bewusst nicht)*
-- [ ] Teile in der Vorschau einzeln drehen/verschieben
+- [ ] Teile in der Vorschau einzeln drehen/verschieben *(nicht umgesetzt – Ausblick)*
 - [x] Warnung, wenn ein Teil größer als die Materialplatte ist
 
 ### Could (wenn Zeit bleibt)
-- [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen *(teilweise: Materialstärke-Feld da)*
-- [ ] Auswahl „Kanten“ – wie Platten an Ecken zusammenstoßen:
+- [ ] Materialstärke eingeben und Steckverbindungen (Nut/Falz) einplanen *(teilweise: Materialstärke-Feld da; Steckverbindungen nicht umgesetzt – Ausblick)*
+- [x] Auswahl „Kanten“ – wie Platten an Ecken zusammenstoßen:
   - [x] stumpf (Umrisse wie flach gelegt)
   - [x] Materialstärke ausgleichen (Stoß auf Außenkante, größere Platte läuft durch)
   - [x] Gehrung von Hand (blaue Anritzlinie zum Abschrägen)
   - [x] Auffalten (Flächen als ein Stück, Knicke blau)
 - [x] IFC-Dateien direkt aus Archicad einlesen *(Wände, Decken/Böden, Dächer, Treppen; mit echtem Archicad-Modell getestet)*
 - [x] Fugen auf Fassaden als Gravur *(Fassaden-Texturen je Gruppe, auch eigene Strichdatei)*
-- [ ] PDF-Export
+- [ ] PDF-Export *(teilweise: Bauanleitung als PDF über „Drucken“; die Laserdatei selbst als PDF nicht – Ausblick)*
 
 ## Etappen (an die Kurstage gekoppelt)
 | Tag | Etappe | Ziel |
@@ -460,7 +460,25 @@ Laserdatei (SVG und DXF) für den Modellbau – im gewünschten Maßstab und mit
   „Geschafft!“ zeigt das fertige Modell. Schmale Fenster: Modell oben, Schritt darunter. Gleiche Schritte wie die PDF
   (gemeinsame Funktion `bauDaten`). Getestet (OBJ-Testhaus): 3 Schritte + Fertig, Farben/Durchsichtigkeit stimmen,
   Drehen per Maus, nach dem Schließen Modell wieder wie vorher, 0 Überlappungen.
+- 19.11.: **Abschluss & Veröffentlichung.**
+  README komplett neu: Kurzbeschreibung mit Link zur Live-Demo, Screenshots, alle Funktionen je Kachel,
+  Laser-Konventionen, Dateiformate, Technik, Quellen mit Lizenzen und Abschnitt zur KI-Nutzung.
+  Sicherheits-Check: keine API-Keys oder Passwörter in Code und Git-Historie. `.gitignore` angelegt: privates
+  Archicad-Modell und `.env` werden nie hochgeladen.
+  GitHub Pages geprüft (alle Pfade relativ bzw. feste CDN-Adressen), Live-Demo läuft.
+  Screenshots der Live-Demo (Startseite, Laser-Vorschau, je 1600 × 900) in `docs/screenshots/`, aufgenommen mit
+  unsichtbarem Edge, weil Node.js/Python nicht installiert sind. QR-Code zur Live-Demo fürs A1-Poster in
+  `docs/qr-code.png` (4500 × 4500, Fehlerkorrektur Q, gegengelesen).
+  Releases **v1.0.0** (erste fertige Version) und **v1.0.1** (mit QR-Code) auf GitHub veröffentlicht.
 
-## Nächste Schritte
-1. Teile in der Vorschau einzeln drehen/verschieben (wäre gut).
-2. Poster und Präsentation für Freitag (20.11.) vorbereiten.
+## Endstand (19.11.2026)
+Alle Must-Punkte sind fertig, dazu fast alle Should- und mehrere Could-Punkte (IFC, Kanten-Varianten, Fassaden-Texturen,
+Bauanleitung). Die App ist online: https://jade-hs-vibecoding-wpk.github.io/laserdatei-aus-3D/
+
+**Ausblick – nicht umgesetzt:**
+- Teile in der Vorschau einzeln drehen/verschieben
+- Steckverbindungen (Nut/Falz)
+- Laserdatei zusätzlich als PDF
+- Teilenummern als Gravur (bewusst weggelassen; die Nummern stehen in Vorschau und Bauanleitung)
+
+**Noch zu tun (ohne Code):** Poster und Präsentation am Fr 20.11., Abgabe bis 16 Uhr.
