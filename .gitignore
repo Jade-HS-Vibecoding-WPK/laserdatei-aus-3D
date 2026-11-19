@@ -1,0 +1,5 @@
+# Private Modelle bleiben nur auf dem eigenen Rechner (nicht ins öffentliche Repo)
+beispiel/KLOSTER MAI 16.ifc
+
+# Geheimnisse nie committen (siehe CLAUDE.md)
+.env
